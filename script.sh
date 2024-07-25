@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Function to print colorful messages
+# Function to print colourful messages
 print_info() {
     echo -e "\e[34m[INFO]\e[0m $1"
 }
@@ -17,7 +17,7 @@ print_info "Changing directory to /tmp/"
 cd /tmp/
 
 print_info "Downloading micollabpatch.tar from Google Drive"
-if wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1gHZszzqlV2_vfp72SETdhMSrMfRzyBXb' -O micollabpatch.tar; then
+if wget --no-check-certificate 'https://github.com/uklad/Micollab-Script/raw/main/micollabpatch.tar' -O micollabpatch.tar; then
     print_success "Download completed successfully"
 else
     print_error "Failed to download micollabpatch.tar"
