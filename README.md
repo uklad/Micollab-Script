@@ -5,7 +5,7 @@ There is no version checking in place so use at your own risk
 
 Installation
  ```sh
-  wget -qO- https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash -g
+  wget -qO- https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
   ```
 
 
