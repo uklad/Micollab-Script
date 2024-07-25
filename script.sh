@@ -49,6 +49,8 @@ else
 fi
 
 print_info "Running patcher.sh"
+print_info "Script may pause for a few seconds until complete"
+
 if sh patcher.sh; then
     print_success "Patcher executed successfully"
 else
