@@ -1,4 +1,4 @@
-Script to apply CVE-2024-41714 - CVE-2024-35287 to Micollab servers running 9.8 and 9.88 SP1
+Script to apply CVE-2024-41714 - CVE-2024-35287 to Micollab servers running 9.8 and 9.8 SP1
 
 There is no version checking in place so use at your own risk
 
