@@ -84,51 +84,6 @@ print_info "Script may pause for a few seconds until complete"
 ) &
 show_working $!
 
-# Define the frames of the moonwalk
-frames=(
-    "   o   /\\
-  /\\|   |
-    |   |
-   / \\ / \\
-"
-    "   o
-  /|\\
-  / |\\
-   / \\
-"
-    "   o   /\\
-  /\\|   |
-    |   |
-   / \\ / \\
-"
-    "   o
-  /|\\
-  / |\\
-   / \\
-"
-)
-
-# Function to clear the screen
-clear_screen() {
-    printf "\033c"
-}
-
-# Function to display the frames in a loop
-show_moonwalk() {
-    local duration=$1
-    local frame_count=${#frames[@]}
-    
-    for (( elapsed=0; elapsed<$duration; elapsed++ )); do
-        local frame_index=$(( elapsed % frame_count ))
-        clear_screen
-        echo "${frames[frame_index]}"
-        sleep 0.2  # Adjust the speed of the animation
-    done
-}
-
-# Run the animation for a specified duration
-show_moonwalk 50
-
 print_success "Script completed successfully"
 
 
