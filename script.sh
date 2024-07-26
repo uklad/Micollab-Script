@@ -13,21 +13,6 @@ print_error() {
     echo -e "\e[31m[ERROR]\e[0m $1"
 }
 
-# Function to show a progress bar
-show_progress() {
-    local duration=$1
-    already_done() { for ((done=0; done<$elapsed; done++)); do printf "▇"; done }
-    remaining() { for ((remain=$elapsed; remain<$duration; remain++)); do printf " "; done }
-    percentage() { printf "| %s%%" $(( (($elapsed)*100)/($duration)*100/100 )); }
-
-    for (( elapsed=1; elapsed<=$duration; elapsed++ )); do
-        already_done; remaining; percentage
-        printf "\r"
-        sleep 1
-    done
-    printf "\n"
-}
-
 # Function to indicate the script is still running
 show_working() {
     local pid=$1
@@ -56,7 +41,7 @@ print_info "Downloading micollabpatch.tar from Google Drive"
     fi
 ) &
 show_working $!
-show_progress $!
+
 print_info "Extracting micollabpatch.tar"
 (
     if tar -xvf micollabpatch.tar; then
@@ -67,7 +52,6 @@ print_info "Extracting micollabpatch.tar"
     fi
 ) &
 show_working $!
-show_progress $!
 
 print_info "Renaming existing views.py and feedback.py"
 mv /etc/e-smith/web/django/servermanager/ucdiag/tdc/views.py /etc/e-smith/web/django/servermanager/ucdiag/tdc/views_old.py || print_error "Failed to rename views.py"
@@ -87,7 +71,6 @@ print_info "Extracting NPM-4630_Fix_Patch_20.8.tar.gz"
     fi
 ) &
 show_working $!
-show_progress $!
 
 print_info "Running patcher.sh"
 print_info "Script may pause for a few seconds until complete"
@@ -100,7 +83,7 @@ print_info "Script may pause for a few seconds until complete"
     fi
 ) &
 show_working $!
-show_progress $!
 
 print_success "Script completed successfully"
+
 
