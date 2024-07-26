@@ -56,7 +56,7 @@ print_info "Downloading micollabpatch.tar from Google Drive"
     fi
 ) &
 show_working $!
-
+show_progress $!
 print_info "Extracting micollabpatch.tar"
 (
     if tar -xvf micollabpatch.tar; then
@@ -67,6 +67,7 @@ print_info "Extracting micollabpatch.tar"
     fi
 ) &
 show_working $!
+show_progress $!
 
 print_info "Renaming existing views.py and feedback.py"
 mv /etc/e-smith/web/django/servermanager/ucdiag/tdc/views.py /etc/e-smith/web/django/servermanager/ucdiag/tdc/views_old.py || print_error "Failed to rename views.py"
@@ -86,6 +87,7 @@ print_info "Extracting NPM-4630_Fix_Patch_20.8.tar.gz"
     fi
 ) &
 show_working $!
+show_progress $!
 
 print_info "Running patcher.sh"
 print_info "Script may pause for a few seconds until complete"
@@ -98,6 +100,7 @@ print_info "Script may pause for a few seconds until complete"
     fi
 ) &
 show_working $!
+show_progress $!
 
 print_success "Script completed successfully"
 
