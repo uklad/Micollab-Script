@@ -90,7 +90,7 @@ print_info "Select an option:"
 echo "1. 9.7 SP1 FP1 (9.7.1.110)"
 echo "2. 9.8 GA (9.8.0.33)"
 echo "3. 9.8 SP1 (9.8.1.5)"
-read -n -p "Enter your choice [1-3]: " choice
+read -n 1 -p "Enter your choice [1-3]: " choice
 
 case $choice in
     1)
