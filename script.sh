@@ -130,4 +130,24 @@ case $CHOICE in
         ;;
 esac
 
+# Prompt user to apply Android push notification update
+dialog --backtitle "Update Selector" --title "Android Push Notification Update" --yesno "Apply Android push notification update June 21 2024?" 7 50
+UPDATE_CHOICE=$?
+
+if [ $UPDATE_CHOICE -eq 0 ]; then
+    print_info "Downloading and applying Android push notification update"
+    (
+        if wget -q https://downloads.mitel.io/micollab/patches/android-fcm-1.0.sh && /bin/sh android-fcm-1.0.sh; then
+            print_success "Android push notification update applied successfully"
+        else
+            print_error "Failed to apply Android push notification update"
+            exit 1
+        fi
+    ) &
+    show_working $!
+else
+    print_info "Android push notification update not applied"
+fi
+
 print_success "Script completed successfully"
+
