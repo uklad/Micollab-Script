@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -i
 
 # Function to print colorful messages
 print_info() {
