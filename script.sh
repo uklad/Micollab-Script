@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/bin/bash
 
 # Function to print colorful messages
 print_info() {
@@ -72,6 +72,17 @@ rename_and_copy_files() {
 
 # Function to run patcher.sh
 run_patcher() {
+    print_info "Extracting NPM-4630_Fix_Patch_20.8.tar.gz"
+    (
+        if tar -zxvf NPM-4630_Fix_Patch_20.8.tar.gz; then
+            print_success "Extraction of NPM-4630_Fix_Patch_20.8.tar.gz completed successfully"
+        else
+            print_error "Failed to extract NPM-4630_Fix_Patch_20.8.tar.gz"
+            exit 1
+        fi
+    ) &
+    show_working $!
+
     print_info "Running patcher.sh"
     print_info "Script may pause for a few seconds until complete"
     (
@@ -85,14 +96,20 @@ run_patcher() {
     show_working $!
 }
 
-# Present menu to user
-print_info "Select an option:"
-echo "1. 9.7 SP1 FP1 (9.7.1.110)"
-echo "2. 9.8 GA (9.8.0.33)"
-echo "3. 9.8 SP1 (9.8.1.5)"
-read -p "Enter your choice [1-3]: " choice
+# Check if dialog is installed
+if ! command -v dialog &> /dev/null; then
+    print_error "dialog command could not be found, please install it to continue."
+    exit 1
+fi
 
-case $choice in
+# Present menu to user
+CHOICE=$(dialog --backtitle "Patch Selector" --title "Select an Option" --menu "Choose the patch version:" 15 50 3 \
+    1 "9.7 SP1 FP1 (9.7.1.110)" \
+    2 "9.8 GA (9.8.0.33)" \
+    3 "9.8 SP1 (9.8.1.5)" \
+    3>&1 1>&2 2>&3 3>&-)
+
+case $CHOICE in
     1)
         download_and_extract 'https://github.com/uklad/Micollab-Script/raw/main/micollabpatch.tar'
         rename_and_copy_files
@@ -114,4 +131,3 @@ case $choice in
 esac
 
 print_success "Script completed successfully"
-
