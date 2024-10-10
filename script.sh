@@ -55,7 +55,7 @@ download_and_extract() {
       tar -xvf "$patch_file" || { print_error "Failed to extract $patch_file"; exit 1; }
       ;;
     *.zip)
-      unzip "$patch_file" || { print_error "Failed to extract $patch_file"; exit 1; }
+      unzip -o "$patch_file" || { print_error "Failed to extract $patch_file"; exit 1; }
       ;;
     *)
       print_error "Unsupported file format: $patch_file"
@@ -137,6 +137,13 @@ run_patcher_NPM-4699() {
 # Function to install an RPM with -Uvh --noscripts
 install_rpm() {
     local rpm_file=$1
+    local rpm_name="${rpm_file%.rpm}"
+
+    # Check if RPM is already installed
+    if rpm -q "$rpm_name" >/dev/null 2>&1; then
+        print_info "RPM package $rpm_file is already installed. Skipping."
+        return 0
+    fi
 
     print_info "Installing RPM package: $rpm_file"
     if rpm -Uvh --noscripts "$rpm_file"; then
@@ -159,42 +166,65 @@ if ! command -v dialog &> /dev/null; then
     exit 1
 fi
 
-# Present menu to user
-CHOICE=$(dialog --backtitle "Patch Selector" --title "Select an Option" --menu "Choose the patch version:" 15 130 5 \
-    1 "9.7 SP1 FP1 (9.7.1.110)" \
-    2 "9.8 GA (9.8.0.33)" \
-    3 "9.8 SP1 (9.8.1.5)" \
-    4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 - Path Traversal Vulnerability 9/10/24" \
-    5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - SQL Injection Vulnerability Reboot Required 9/10/24" \
+# Get Micollab version
+
+MasVersion=$(config getprop sysconfig MasVersion)
+if [ $? -ne 0 ]; then
+  print_error "Failed to retrieve MasVersion: $?"
+  exit 1
+fi
+
+if [ -z "$MasVersion" ]; then
+  print_error "MasVersion is not set or empty"
+  exit 1
+fi
+
+print_success "MasVersion Detected as: $MasVersion"
+
+CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --checklist \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion" 15 150 5 \
+    1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 Command Injection Vulnerability" off \
+    2 "9.8 GA (9.8.0.33) CVE-2024-41714 Command Injection Vulnerability & CVE-2024-35287 - Privilege Escalation Vulnerability" off \
+    3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 Command Injection Vulnerability & CVE-2024-35287 - Privilege Escalation Vulnerability" off \
+    4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 - Path Traversal Vulnerability 9/10/24" off \
+    5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - SQL Injection Vulnerability Reboot Required 9/10/24" off \
     3>&1 1>&2 2>&3 3>&-)
-	
-case $CHOICE in
-    1)
-        download_and_extract 'https://github.com/uklad/Micollab-Script/raw/main/micollabpatch.tar'
-        rename_and_copy_files
-        ;;
-    2)
-        download_and_extract 'https://github.com/uklad/Micollab-Script/raw/main/micollabpatch.tar'
-        rename_and_copy_files
-        run_patcher_NPM-4630
-        ;;
-    3)
-        download_and_extract 'https://github.com/uklad/Micollab-Script/raw/main/micollabpatch9-8-1-5.tar'
-        rename_and_copy_files
-        run_patcher_NPM-4630
-        ;;
-    4)
-        download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/NPM-4699_4747_Fix_Patch_24Sep24.tar.gz'
-        run_patcher_NPM-4699
-        ;;
-    5)
-        download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
-		install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
-        ;;
-    *)
-        print_error "Invalid choice. Exiting."
-        exit 1
-        ;;
-esac
+
+if [ -z "$CHOICES" ]; then
+    print_error "No options selected. Exiting."
+    exit 1
+fi
+
+for CHOICE in $CHOICES; do
+    case $CHOICE in
+        1)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.7%20SP1%20patch.zip'
+            rename_and_copy_files
+            ;;
+        2)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.8%20GA%20patch.zip'
+            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
+            rename_and_copy_files
+            run_patcher_NPM-4630
+            ;;
+        3)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.8%20SP1%20patch.zip'
+            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
+            rename_and_copy_files
+            run_patcher_NPM-4630
+            ;;
+        4)
+            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/NPM-4699_4747_Fix_Patch_24Sep24.tar.gz'
+            run_patcher_NPM-4699
+            ;;
+        5)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
+            install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
+            ;;
+        *)
+            print_error "Invalid choice. Skipping."
+            ;;
+    esac
+done
 
 print_success "Script completed successfully"
