@@ -181,13 +181,42 @@ fi
 
 print_success "MasVersion Detected as: $MasVersion"
 
+# Determine the preselected options based on MasVersion
+case "$MasVersion" in
+  "9.7.0.27")
+    PRESELECTED="4"
+    ;;
+  "9.7.1.13")
+    PRESELECTED="1 4"
+    ;;
+  "9.7.1.110")
+    PRESELECTED="4"
+    ;;
+  "9.8.0.33")
+    PRESELECTED="2 4 5"
+    ;;
+  "9.8.1.5")
+    PRESELECTED="3 4 5"
+    ;;
+  "9.8.1.201")
+    PRESELECTED="4 5"
+    ;;
+  "9.8.2.12")
+    PRESELECTED=""
+    ;;
+  *)
+    PRESELECTED=""
+    ;;
+esac
+
+# Display the dialog with preselected options
 CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --checklist \
 "Choose the patch version(s): Micollab Version Detected : $MasVersion" 15 150 5 \
-    1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 Command Injection Vulnerability" off \
-    2 "9.8 GA (9.8.0.33) CVE-2024-41714 Command Injection Vulnerability & CVE-2024-35287 - Privilege Escalation Vulnerability" off \
-    3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 Command Injection Vulnerability & CVE-2024-35287 - Privilege Escalation Vulnerability" off \
-    4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 - Path Traversal Vulnerability 9/10/24" off \
-    5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - SQL Injection Vulnerability Reboot Required 9/10/24" off \
+    1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 " $( [[ "$PRESELECTED" == *1* ]] && echo "on" || echo "off" ) \
+    2 "9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *2* ]] && echo "on" || echo "off" ) \
+    3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *3* ]] && echo "on" || echo "off" ) \
+    4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *4* ]] && echo "on" || echo "off" ) \
+    5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **" $( [[ "$PRESELECTED" == *5* ]] && echo "on" || echo "off" ) \
     3>&1 1>&2 2>&3 3>&-)
 
 if [ -z "$CHOICES" ]; then
@@ -195,6 +224,7 @@ if [ -z "$CHOICES" ]; then
     exit 1
 fi
 
+# Process the selected options
 for CHOICE in $CHOICES; do
     case $CHOICE in
         1)
