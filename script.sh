@@ -211,7 +211,7 @@ esac
 
 # Display the dialog with preselected options
 CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion" 15 150 5 \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion preselected recommended patches " 15 150 5 \
     1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 " $( [[ "$PRESELECTED" == *1* ]] && echo "on" || echo "off" ) \
     2 "9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *2* ]] && echo "on" || echo "off" ) \
     3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *3* ]] && echo "on" || echo "off" ) \
