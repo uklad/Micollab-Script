@@ -198,6 +198,9 @@ case "$MasVersion" in
   "9.8.1.5")
     PRESELECTED="3 4 5"
     ;;
+  "9.8.1.108")
+    PRESELECTED="4 5"
+    ;;    
   "9.8.1.201")
     PRESELECTED="4 5"
     ;;
