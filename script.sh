@@ -115,12 +115,12 @@ run_patcher_NPM-4630() {
 }
 
 # Function to run NPM-4699 patcher.sh
-run_patcher_NPM-4699() {
-    print_info "Extracting NPM-4699_4747_Fix_Patch_24Sep24.tar.gz"
-    if tar -zxvf NPM-4699_4747_Fix_Patch_24Sep24.tar.gz; then
-        print_success "Extraction of NPM-4699_4747_Fix_Patch_24Sep24.tar.gz completed successfully"
+run_patcher_CVE-2024-41713() {
+    print_info "Extracting security_CVE-2024-41713_MiCollab.tar.gz"
+    if tar -zxvf security_CVE-2024-41713_MiCollab.tar.gz; then
+        print_success "Extraction of security_CVE-2024-41713_MiCollab.tar.gz completed successfully"
     else
-        print_error "Failed to extract NPM-4699_4747_Fix_Patch_24Sep24.tar.gz"
+        print_error "Failed to extract security_CVE-2024-41713_MiCollab.tar.gz"
         exit 1
     fi
 
@@ -220,6 +220,7 @@ CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --check
     3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *3* ]] && echo "on" || echo "off" ) \
     4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *4* ]] && echo "on" || echo "off" ) \
     5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **" $( [[ "$PRESELECTED" == *5* ]] && echo "on" || echo "off" ) \
+	6 "6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *6* ]] && echo "on" || echo "off" ) \
     3>&1 1>&2 2>&3 3>&-)
 
 if [ -z "$CHOICES" ]; then
@@ -247,14 +248,18 @@ for CHOICE in $CHOICES; do
             run_patcher_NPM-4630
             ;;
         4)
-            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/NPM-4699_4747_Fix_Patch_24Sep24.tar.gz'
-            run_patcher_NPM-4699
+            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
+            run_patcher_CVE-2024-41713
             ;;
         5)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
             install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
             ;;
-        *)
+        4)
+            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
+            run_patcher_CVE-2024-41713
+            ;;		
+		*)
             print_error "Invalid choice. Skipping."
             ;;
     esac
