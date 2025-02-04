@@ -255,7 +255,7 @@ for CHOICE in $CHOICES; do
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
             install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
             ;;
-        4)
+        6)
             download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
             run_patcher_CVE-2024-41713
             ;;		
