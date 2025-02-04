@@ -13,6 +13,8 @@ wget -qO- https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
 
 The Micollab version is checked and appropriate patched are pre selected.
 
+For Micollab 6.0 - 9.7 and MiVB-x select options 6 for the correct CVE-2024-41713 patch file
+
 There is no checks is the patches are allready applied.
 
 Script may pause a few times during installation no user interation is required once the patching process has started.
