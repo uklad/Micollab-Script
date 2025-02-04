@@ -259,7 +259,7 @@ for CHOICE in $CHOICES; do
             download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
             run_patcher_CVE-2024-41713
             ;;		
-		*)
+	*)
             print_error "Invalid choice. Skipping."
             ;;
     esac
