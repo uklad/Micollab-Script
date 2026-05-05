@@ -10,7 +10,7 @@ set -euo pipefail
 # ------------------------------------------------------------------------------
 # Constants
 # ------------------------------------------------------------------------------
-readonly SCRIPT_VERSION="2.0.1"
+readonly SCRIPT_VERSION="2.0.0"
 readonly TMP_DIR="/tmp/micollab_patches"
 readonly LOG_FILE="/var/log/micollab_patch_$(date +%Y%m%d_%H%M%S).log"
 readonly GITHUB_BASE="https://github.com/uklad/Micollab-Script/raw/refs/heads/main"
@@ -276,24 +276,33 @@ main() {
         print_warn "No pre-recommended patches for version $mas_version. Please select manually."
     fi
 
-    # Build dialog checklist
-    # Redirect input from /dev/tty and output to /dev/tty so dialog works
-    # correctly even when the script is piped via: bash <(wget -qO- ...)
-    local choices
-    choices=$(dialog \
+    # Build dialog checklist.
+    # When piped via `wget | bash`, stdin is consumed by the pipe so dialog
+    # cannot read keypresses. Fix: write selections to a temp file via stderr
+    # redirect (2>), and force both UI input and output through /dev/tty.
+    local choices_file choices dialog_exit
+    choices_file=$(mktemp /tmp/micollab_dialog.XXXXXX)
+
+    dialog \
         --backtitle "MiCollab Patch Selector v${SCRIPT_VERSION}" \
         --title "Security Patch Selection" \
         --checklist "MiCollab version detected: $mas_version\nRecommended patches are pre-selected.\n\nUse SPACE to toggle, ENTER to confirm." \
         20 160 7 \
-        $(build_dialog_option 1 "9.7 SP1  (9.7.1.13)              | CVE-2024-41714"                                 "$preselected") \
-        $(build_dialog_option 2 "9.8 GA   (9.8.0.33)              | CVE-2024-41714 + CVE-2024-35287"               "$preselected") \
-        $(build_dialog_option 3 "9.8 SP1  (9.8.1.5)               | CVE-2024-41714 + CVE-2024-35287"               "$preselected") \
+        $(build_dialog_option 1 "9.7 SP1  (9.7.1.13)                  | CVE-2024-41714"                            "$preselected") \
+        $(build_dialog_option 2 "9.8 GA   (9.8.0.33)                  | CVE-2024-41714 + CVE-2024-35287"           "$preselected") \
+        $(build_dialog_option 3 "9.8 SP1  (9.8.1.5)                   | CVE-2024-41714 + CVE-2024-35287"           "$preselected") \
         $(build_dialog_option 4 "9.7-9.8 SP1FP2 (9.7.0.27-9.8.1.201) | CVE-2024-41713"                            "$preselected") \
         $(build_dialog_option 5 "9.8 GA-SP1FP2  (9.8.0.33-9.8.1.201) | CVE-2024-47223  *** REBOOT REQUIRED ***"   "$preselected") \
-        $(build_dialog_option 6 "6.0-9.8 SP1FP2 + MiVB-X           | CVE-2024-41713"                              "$preselected") \
-        2>&1 >/dev/tty </dev/tty) || { print_error "Dialog cancelled. Exiting."; exit 1; }
+        $(build_dialog_option 6 "6.0-9.8 SP1FP2 + MiVB-X             | CVE-2024-41713"                            "$preselected") \
+        2>"$choices_file" </dev/tty >/dev/tty
+    dialog_exit=$?
 
-    [[ -n "$choices" ]] || die "No patches selected. Exiting."
+    choices=$(cat "$choices_file")
+    rm -f "$choices_file"
+
+    if [[ $dialog_exit -ne 0 ]] || [[ -z "$choices" ]]; then
+        die "No patches selected or dialog was cancelled. Exiting."
+    fi
 
     print_info "Selected patches: $choices"
     log "User selected choices: $choices"
