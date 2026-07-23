@@ -135,8 +135,12 @@ run_patcher_CVE-2024-41713() {
 }
 
 # Function to install an RPM with -Uvh --noscripts
+# Accepts either a bare filename (expected in the current dir) or a relative
+# path (e.g. extracted-folder/package.rpm) - rpm -q only wants the package
+# name, but -Uvh needs the actual path to the file.
 install_rpm() {
-    local rpm_file=$1
+    local rpm_path=$1
+    local rpm_file="${rpm_path##*/}"   # basename, for display/query
     local rpm_name="${rpm_file%.rpm}"
 
     # Check if RPM is already installed
@@ -146,19 +150,13 @@ install_rpm() {
     fi
 
     print_info "Installing RPM package: $rpm_file"
-    if rpm -Uvh --noscripts "$rpm_file"; then
+    if rpm -Uvh --noscripts "$rpm_path"; then
         print_success "RPM installed successfully: $rpm_file"
     else
         print_error "Failed to install RPM: $rpm_file"
         exit 1
     fi
 }
-
-# Check if dialog is installed
-if ! command -v dialog &> /dev/null; then
-    print_error "dialog command could not be found, please install it to continue."
-    exit 1
-fi
 
 # Check if dialog is installed
 if ! command -v dialog &> /dev/null; then
@@ -207,6 +205,12 @@ case "$MasVersion" in
   "9.8.2.12")
     PRESELECTED=""
     ;;
+  "9.8.3.203")
+    PRESELECTED="7"
+    ;;
+  "10.2.1.205")
+    PRESELECTED="8"
+    ;;
   *)
     PRESELECTED=""
     ;;
@@ -214,13 +218,15 @@ esac
 
 # Display the dialog with preselected options
 CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion preselected recommended patches " 15 150 6 \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion preselected recommended patches " 18 150 8 \
     1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 " $( [[ "$PRESELECTED" == *1* ]] && echo "on" || echo "off" ) \
     2 "9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *2* ]] && echo "on" || echo "off" ) \
     3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *3* ]] && echo "on" || echo "off" ) \
     4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *4* ]] && echo "on" || echo "off" ) \
     5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **" $( [[ "$PRESELECTED" == *5* ]] && echo "on" || echo "off" ) \
     6 "6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *6* ]] && echo "on" || echo "off" ) \
+    7 "9.8 SP3FP1 (9.8.3.203) MISA-2026-0006 " $( [[ "$PRESELECTED" == *7* ]] && echo "on" || echo "off" ) \
+    8 "10.2 SP1FP2 (10.2.1.205) MISA-2026-0006 " $( [[ "$PRESELECTED" == *8* ]] && echo "on" || echo "off" ) \
     3>&1 1>&2 2>&3 3>&-)
 
 if [ -z "$CHOICES" ]; then
@@ -258,7 +264,15 @@ for CHOICE in $CHOICES; do
         6)
             download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
             run_patcher_CVE-2024-41713
-            ;;		
+            ;;
+        7)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26.zip'
+            install_rpm 'AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26/awc-audio-newupg-9.8.3.202-2.i386.rpm'
+            ;;
+        8)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26.zip'
+            install_rpm 'AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26/awc-audio-newupg-10.3.0.7-1.x86_64.rpm'
+            ;;
 	*)
             print_error "Invalid choice. Skipping."
             ;;
