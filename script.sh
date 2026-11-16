@@ -211,6 +211,9 @@ case "$MasVersion" in
   "10.2.1.205")
     PRESELECTED="8"
     ;;
+  "10.3.0.18")
+    PRESELECTED="9"
+    ;;
   *)
     PRESELECTED=""
     ;;
@@ -218,7 +221,7 @@ esac
 
 # Display the dialog with preselected options
 CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion preselected recommended patches " 18 150 8 \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion preselected recommended patches " 19 150 9 \
     1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 " $( [[ "$PRESELECTED" == *1* ]] && echo "on" || echo "off" ) \
     2 "9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *2* ]] && echo "on" || echo "off" ) \
     3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *3* ]] && echo "on" || echo "off" ) \
@@ -227,6 +230,7 @@ CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --check
     6 "6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *6* ]] && echo "on" || echo "off" ) \
     7 "9.8 SP3FP1 (9.8.3.203) MISA-2026-0006 " $( [[ "$PRESELECTED" == *7* ]] && echo "on" || echo "off" ) \
     8 "10.2 SP1FP2 (10.2.1.205) MISA-2026-0006 " $( [[ "$PRESELECTED" == *8* ]] && echo "on" || echo "off" ) \
+    9 "10.3 (10.3.0.18) MISA-2026-0012 " $( [[ "$PRESELECTED" == *9* ]] && echo "on" || echo "off" ) \
     3>&1 1>&2 2>&3 3>&-)
 
 if [ -z "$CHOICES" ]; then
@@ -272,6 +276,11 @@ for CHOICE in $CHOICES; do
         8)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26.zip'
             install_rpm 'AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26/awc-audio-newupg-10.3.0.7-1.x86_64.rpm'
+            ;;
+        9)
+            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0012/AWV-11322_FixPatch_MAS_10.3_HF1.zip'
+            install_rpm 'awc-audio-newupg-10.3.0.8-1.x86_64.rpm'
+            print_info "MISA-2026-0012: stop/start the AWV services in Server Manager to complete the patch"
             ;;
 	*)
             print_error "Invalid choice. Skipping."
