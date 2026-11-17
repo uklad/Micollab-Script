@@ -357,6 +357,9 @@ done
 # Restart AWV once, after all selected patches are installed
 if [ "$AWV_RESTART_NEEDED" = 1 ]; then
     restart_awv_services || AWV_RESTART_FAILED=1
+elif [[ "$CHOICES" =~ [789] ]]; then
+    # An AWV patch (7/8/9) was selected but its RPM was already installed
+    print_info "AWV restart skipped: the selected AWV patch was already installed, so nothing changed"
 fi
 
 if [ "$AWV_RESTART_FAILED" = 1 ]; then
