@@ -44,7 +44,8 @@ For MiCollab 6.0 - 9.7 and MiVB-X, manually select **option 6** for the correct 
 ## Notes
 - Requires `curl` (used to download the script and the patch files).
 - Requires `dialog` to be installed on the server; the script will exit with an error if it's not found.
-- There is no check for whether a patch has already been applied — reapplying an already-installed patch is not automatically prevented, except for RPM-based options (5, 7, 8, 9), which will skip installation if the RPM package is already present.
+- **RPM-based options (5, 7, 8, 9)** are checked before the menu opens. If the patch's RPM is already installed, the option is labelled `[ALREADY INSTALLED]` and is not preselected. If you tick it anyway, the install is skipped.
+- Options 1, 2, 3, 4 and 6 (file-based patches) have no such check, so reapplying them is not prevented.
 - The script may pause for a few seconds at points during installation. No user interaction is required once the patching process has started.
 - The patch for CVE-2024-47223 (option 5) requires a reboot to take effect.
 - Options 7 and 8 (MISA-2026-0006) each download a zip containing two RPM versions; the script installs only the intended version (9.8.3.202 for 9.8 SP3FP1, 10.3.0.7 for 10.2 SP1FP2) and leaves the other file extracted but unused.
