@@ -156,6 +156,7 @@ install_rpm() {
     local rpm_path=$1
     local rpm_file="${rpm_path##*/}"   # basename, for display/query
     local rpm_name="${rpm_file%.rpm}"
+    RPM_INSTALLED=0   # set to 1 only when a package is actually installed
 
     # Check if RPM is already installed
     if rpm -q "$rpm_name" >/dev/null 2>&1; then
@@ -166,10 +167,62 @@ install_rpm() {
     print_info "Installing RPM package: $rpm_file"
     if rpm -Uvh --noscripts "$rpm_path"; then
         print_success "RPM installed successfully: $rpm_file"
+        RPM_INSTALLED=1
     else
         print_error "Failed to install RPM: $rpm_file"
         exit 1
     fi
+}
+
+# AWV conferencing services, controlled through the MSL service wrapper (the
+# same one the AWV admin page's Start/Stop uses). Stop order matches the admin
+# page's "Stop All" (watchdog first); start order matches the AWV installer
+# (watchdog last).
+AWV_STOP_ORDER="tnsdvr-monitor ths mcud ivrd cdr_buffer eocpctl tnsd tnsdvr cpctl muxerd awcwss"
+AWV_START_ORDER="mcud cdr_buffer ivrd ths tnsd tnsdvr muxerd eocpctl cpctl awcwss tnsdvr-monitor"
+
+# Function to stop then start the AWV services after an AWV patch.
+# Note: this drops every active audio, web and video conference.
+restart_awv_services() {
+    local svc_cmd=/sbin/e-smith/service
+    local stop_list="$AWV_STOP_ORDER"
+    local start_list="$AWV_START_ORDER"
+    local failed=""
+
+    if [ ! -x "$svc_cmd" ]; then
+        print_error "$svc_cmd not found - stop/start the AWV services in Server Manager manually"
+        return 1
+    fi
+
+    # Mitel 5000 / Axxess integrations also run sipcfgmgr and sipserver
+    # (stopped last, started last)
+    local switch_name
+    switch_name=$(/sbin/e-smith/db awcconf get SWITCH_NAME 2>/dev/null)
+    case "${switch_name,,}" in
+        *5000*|*axxess*)
+            print_info "Switch type '$switch_name' detected - including sipcfgmgr and sipserver"
+            stop_list="$stop_list sipcfgmgr sipserver"
+            start_list="$start_list sipcfgmgr sipserver"
+            ;;
+    esac
+
+    print_info "Stopping AWV services (active conferences will be dropped)"
+    for svc in $stop_list; do
+        # </dev/null: when run as "curl|bash" stdin is this script itself
+        "$svc_cmd" "$svc" stop </dev/null || failed="$failed $svc(stop)"
+    done
+
+    print_info "Starting AWV services"
+    for svc in $start_list; do
+        "$svc_cmd" "$svc" start </dev/null || failed="$failed $svc(start)"
+    done
+
+    if [ -n "$failed" ]; then
+        print_error "Some AWV service commands reported errors:$failed"
+        print_error "Check the services in Server Manager (Applications > Audio, Web and Video Conferencing)"
+        return 1
+    fi
+    print_success "AWV services restarted"
 }
 
 # Check if dialog is installed
@@ -286,20 +339,32 @@ for CHOICE in $CHOICES; do
         7)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26.zip'
             install_rpm 'AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26/awc-audio-newupg-9.8.3.202-2.i386.rpm'
+            [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
         8)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26.zip'
             install_rpm 'AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26/awc-audio-newupg-10.3.0.7-1.x86_64.rpm'
+            [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
         9)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0012/AWV-11322_FixPatch_MAS_10.3_HF1.zip'
             install_rpm 'awc-audio-newupg-10.3.0.8-1.x86_64.rpm'
-            print_info "MISA-2026-0012: stop/start the AWV services in Server Manager to complete the patch"
+            [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
 	*)
             print_error "Invalid choice. Skipping."
             ;;
     esac
 done
+
+# Restart AWV once, after all selected patches are installed
+if [ "$AWV_RESTART_NEEDED" = 1 ]; then
+    restart_awv_services || AWV_RESTART_FAILED=1
+fi
+
+if [ "$AWV_RESTART_FAILED" = 1 ]; then
+    print_error "Patches installed, but the AWV restart needs checking (see errors above)"
+    exit 1
+fi
 
 print_success "Script completed successfully"

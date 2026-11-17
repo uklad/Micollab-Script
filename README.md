@@ -52,8 +52,8 @@ For MiCollab 6.0 - 9.7 and MiVB-X, manually select **option 6** for the correct 
 - The patch for CVE-2024-47223 (option 5) requires a reboot to take effect.
 - Options 7 and 8 (MISA-2026-0006) each download a zip containing two RPM versions; the script installs only the intended version (9.8.3.202 for 9.8 SP3FP1, 10.3.0.7 for 10.2 SP1FP2) and leaves the other file extracted but unused.
 - Option 9 (MISA-2026-0012) downloads `AWV-11322_FixPatch_MAS_10.3_HF1.zip` and installs `awc-audio-newupg-10.3.0.8-1.x86_64.rpm`. The GA `awc-audio-newupg-10.3.0.7-1.x86_64.rpm` is also extracted to `/tmp` for rollback.
-- **Options 7, 8 and 9:** When complete, access server-manager and stop/start the AWV services.
-- **To revert option 9** to the 10.3 GA version, run the following from `/tmp`, then stop/start the AWV services in Server Manager:
+- **Options 7, 8 and 9 restart AWV automatically.** Once all selected patches are installed, the script stops and then starts the 11 AWV services using `/sbin/e-smith/service`, the same wrapper the AWV admin page uses. It does this once, even if several AWV options are selected, and only if an RPM was actually installed. **This drops every active audio, web and video conference**, so run it in a maintenance window. On Mitel 5000 / Axxess integrations (detected from `db awcconf get SWITCH_NAME`), `sipcfgmgr` and `sipserver` are restarted too. If any service reports an error, the script says so and exits non-zero; check the services in Server Manager.
+- **To revert option 9** to the 10.3 GA version, run the following from `/tmp`, then stop/start the AWV services in Server Manager (reverting is manual and not done by the script):
   ```
   rpm -Uvh --noscripts --oldpackage awc-audio-newupg-10.3.0.7-1.x86_64.rpm
   ```
