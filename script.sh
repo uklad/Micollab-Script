@@ -302,18 +302,39 @@ for opt in "${!RPM_PATCH[@]}"; do
   fi
 done
 
+# Menu labels, one per option
+MENU_LABELS=(
+  [1]="9.7 SP1 (9.7.1.13) CVE-2024-41714"
+  [2]="9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287"
+  [3]="9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287"
+  [4]="9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713"
+  [5]="9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **"
+  [6]="6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713"
+  [7]="9.8 SP3FP1 (9.8.3.203) MISA-2026-0006"
+  [8]="10.2 SP1FP2 (10.2.1.205) MISA-2026-0006"
+  [9]="10.3 (10.3.0.18) MISA-2026-0012"
+)
+
+# Colour each item (dialog --colors: \Z1 red, \Z2 green, \Z3 yellow, \Zn reset):
+#   green  = already installed
+#   red    = recommended for this version (preselected)
+#   yellow = not required for this version
+MENU_ITEMS=()
+for opt in 1 2 3 4 5 6 7 8 9; do
+  if [ -n "${TAG[$opt]}" ]; then
+    colour='\Z2'; state=off
+  elif [[ "$PRESELECTED" == *$opt* ]]; then
+    colour='\Z1'; state=on
+  else
+    colour='\Z3'; state=off
+  fi
+  MENU_ITEMS+=("$opt" "${colour}${MENU_LABELS[$opt]}${TAG[$opt]}\\Zn" "$state")
+done
+
 # Display the dialog with preselected options
-CHOICES=$(dialog --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion preselected recommended patches " 19 150 9 \
-    1 "9.7 SP1 (9.7.1.13) CVE-2024-41714 " $( [[ "$PRESELECTED" == *1* ]] && echo "on" || echo "off" ) \
-    2 "9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *2* ]] && echo "on" || echo "off" ) \
-    3 "9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287 " $( [[ "$PRESELECTED" == *3* ]] && echo "on" || echo "off" ) \
-    4 "9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *4* ]] && echo "on" || echo "off" ) \
-    5 "9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **${TAG[5]}" $( [[ "$PRESELECTED" == *5* ]] && echo "on" || echo "off" ) \
-    6 "6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713 " $( [[ "$PRESELECTED" == *6* ]] && echo "on" || echo "off" ) \
-    7 "9.8 SP3FP1 (9.8.3.203) MISA-2026-0006${TAG[7]} " $( [[ "$PRESELECTED" == *7* ]] && echo "on" || echo "off" ) \
-    8 "10.2 SP1FP2 (10.2.1.205) MISA-2026-0006${TAG[8]} " $( [[ "$PRESELECTED" == *8* ]] && echo "on" || echo "off" ) \
-    9 "10.3 (10.3.0.18) MISA-2026-0012${TAG[9]} " $( [[ "$PRESELECTED" == *9* ]] && echo "on" || echo "off" ) \
+CHOICES=$(dialog --colors --backtitle "Patch Selector" --title "Select an Option" --checklist \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Z1Red\Zn = recommended (preselected)   \Z2Green\Zn = already installed   \Z3Yellow\Zn = not required for this version" 21 150 9 \
+    "${MENU_ITEMS[@]}" \
     3>&1 1>&2 2>&3 3>&-)
 
 if [ -z "$CHOICES" ]; then
