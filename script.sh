@@ -29,6 +29,20 @@ show_working() {
     printf "    \b\b\b\b"
 }
 
+# Function to fetch a URL to a file, using wget if available, otherwise curl
+fetch_file() {
+  local url="$1"
+  local out="$2"
+  if command -v wget >/dev/null 2>&1; then
+    wget --no-check-certificate "$url" -O "$out"
+  elif command -v curl >/dev/null 2>&1; then
+    curl -fL --insecure "$url" -o "$out"
+  else
+    print_error "Neither wget nor curl is installed, cannot download $out"
+    return 1
+  fi
+}
+
 # Function to download and extract patch
 
 download_and_extract() {
@@ -39,7 +53,7 @@ download_and_extract() {
   cd /tmp/ || { print_error "Failed to change directory to /tmp/"; exit 1; }
 
   print_info "Downloading patch from $url"
-  if wget --no-check-certificate "$url" -O "$patch_file"; then
+  if fetch_file "$url" "$patch_file"; then
     print_success "Download completed successfully"
   else
     print_error "Failed to download $patch_file"
@@ -75,7 +89,7 @@ download_patch() {
     cd /tmp/ || { print_error "Failed to change directory to /tmp/"; exit 1; }
 
     print_info "Downloading patch from $url"
-    if wget --no-check-certificate "$url" -O "$patch_file"; then
+    if fetch_file "$url" "$patch_file"; then
         print_success "Download completed successfully"
     else
         print_error "Failed to download $patch_file"

@@ -6,6 +6,10 @@ Script will check the current MiCollab version and preselect the recommended pat
 ```
 wget -qO- https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
 ```
+If `wget` is not available, use `curl` instead (the script falls back to `curl` for patch downloads automatically):
+```
+curl -fsSL https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
+```
 The MiCollab version is checked automatically via `config getprop sysconfig MasVersion`, and the appropriate patch(es) are pre-selected in the checklist. You can still tick/untick options manually before confirming.
 
 ## Preselection by version
