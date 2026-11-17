@@ -4,10 +4,6 @@ A simple bash script to quickly apply CVE-2024-35287, CVE-2024-41713, CVE-2024-4
 ## Installation
 Script will check the current MiCollab version and preselect the recommended patch(es).
 ```
-wget -qO- https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
-```
-If `wget` is not available, use `curl` instead (the script falls back to `curl` for patch downloads automatically):
-```
 curl -fsSL https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
 ```
 The MiCollab version is checked automatically via `config getprop sysconfig MasVersion`, and the appropriate patch(es) are pre-selected in the checklist. You can still tick/untick options manually before confirming.
@@ -46,6 +42,7 @@ For MiCollab 6.0 - 9.7 and MiVB-X, manually select **option 6** for the correct 
 | 9 | 10.3 (10.3.0.18) - MISA-2026-0012 (MTLVULN-1861, 1862, 1863, 1864, 1877) |
 
 ## Notes
+- Requires `curl` (used to download the script and the patch files).
 - Requires `dialog` to be installed on the server; the script will exit with an error if it's not found.
 - There is no check for whether a patch has already been applied — reapplying an already-installed patch is not automatically prevented, except for RPM-based options (5, 7, 8, 9), which will skip installation if the RPM package is already present.
 - The script may pause for a few seconds at points during installation. No user interaction is required once the patching process has started.

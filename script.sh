@@ -29,18 +29,15 @@ show_working() {
     printf "    \b\b\b\b"
 }
 
-# Function to fetch a URL to a file, using wget if available, otherwise curl
+# Function to fetch a URL to a file with curl
 fetch_file() {
   local url="$1"
   local out="$2"
-  if command -v wget >/dev/null 2>&1; then
-    wget --no-check-certificate "$url" -O "$out"
-  elif command -v curl >/dev/null 2>&1; then
-    curl -fL --insecure "$url" -o "$out"
-  else
-    print_error "Neither wget nor curl is installed, cannot download $out"
+  if ! command -v curl >/dev/null 2>&1; then
+    print_error "curl is not installed, cannot download $out"
     return 1
   fi
+  curl -fL --insecure "$url" -o "$out"
 }
 
 # Function to download and extract patch
