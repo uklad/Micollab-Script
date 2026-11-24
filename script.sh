@@ -323,27 +323,64 @@ MENU_LABELS=(
   [9]="10.3 (10.3.0.18) MISA-2026-0012 / CVE requested"
 )
 
-# Colour each item (dialog --colors: \Z1 red, \Z2 green, \Z3 yellow, \Zn reset):
+# Colour each item (dialog --colors: \Zb bold, \Z1 red, \Z2 green, \Z3 yellow,
+# \Zn reset). Bold gives the bright variant, which reads well on black:
 #   green  = already installed
 #   red    = recommended for this version (preselected)
 #   yellow = not required for this version
 MENU_ITEMS=()
 for opt in 1 2 3 4 5 6 7 8 9; do
   if [ -n "${TAG[$opt]}" ]; then
-    colour='\Z2'; state=off
+    colour='\Zb\Z2'; state=off
   elif [[ "$PRESELECTED" == *$opt* ]]; then
-    colour='\Z1'; state=on
+    colour='\Zb\Z1'; state=on
   else
-    colour='\Z3'; state=off
+    colour='\Zb\Z3'; state=off
   fi
   MENU_ITEMS+=("$opt" "${colour}${MENU_LABELS[$opt]}${TAG[$opt]}\\Zn" "$state")
 done
 
+# Dark theme for this menu only, so the red/green/yellow items are readable
+# (dialog's default blue screen and grey box make them hard to see).
+# Written to a temp file and passed via DIALOGRC; the server's own dialog
+# settings are not changed.
+DIALOG_THEME=$(mktemp /tmp/micollab-dialogrc.XXXXXX)
+cat > "$DIALOG_THEME" <<'EOF'
+use_shadow = OFF
+use_colors = ON
+screen_color = (WHITE,BLACK,OFF)
+shadow_color = (BLACK,BLACK,OFF)
+dialog_color = (WHITE,BLACK,OFF)
+title_color = (CYAN,BLACK,ON)
+border_color = (WHITE,BLACK,ON)
+button_active_color = (BLACK,CYAN,OFF)
+button_inactive_color = (WHITE,BLACK,OFF)
+button_key_active_color = (BLACK,CYAN,OFF)
+button_key_inactive_color = (CYAN,BLACK,ON)
+button_label_active_color = (BLACK,CYAN,OFF)
+button_label_inactive_color = (WHITE,BLACK,ON)
+position_indicator_color = (CYAN,BLACK,ON)
+menubox_color = (WHITE,BLACK,OFF)
+menubox_border_color = (WHITE,BLACK,ON)
+item_color = (WHITE,BLACK,OFF)
+item_selected_color = (WHITE,BLUE,ON)
+tag_color = (CYAN,BLACK,ON)
+tag_selected_color = (WHITE,BLUE,ON)
+tag_key_color = (CYAN,BLACK,ON)
+tag_key_selected_color = (WHITE,BLUE,ON)
+check_color = (WHITE,BLACK,ON)
+check_selected_color = (WHITE,BLUE,ON)
+uarrow_color = (CYAN,BLACK,ON)
+darrow_color = (CYAN,BLACK,ON)
+EOF
+
 # Display the dialog with preselected options
-CHOICES=$(dialog --colors --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Z1Red\Zn = recommended (preselected)   \Z2Green\Zn = already installed   \Z3Yellow\Zn = not required for this version" 21 150 9 \
+CHOICES=$(DIALOGRC="$DIALOG_THEME" dialog --colors --backtitle "Patch Selector" --title "Select an Option" --checklist \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 21 150 9 \
     "${MENU_ITEMS[@]}" \
     3>&1 1>&2 2>&3 3>&-)
+rm -f "$DIALOG_THEME"
+clear
 
 if [ -z "$CHOICES" ]; then
     print_error "No options selected. Exiting."
