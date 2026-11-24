@@ -1,5 +1,5 @@
 # Micollab Patch Installer
-A bash script (v2.2.3) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+A bash script (v2.2.4) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
 
 ## What it does
 1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
@@ -97,18 +97,24 @@ When the script finishes, it prints a plain-text status report. It also prints o
 PATCH STATUS REPORT
 Hostname:          mcollab01
 MiCollab version:  9.8.1.5
-Report date:       2026-11-24 11:52
-Installer version: 2.2.3
+Report date:       2026-11-24 11:56
+Installer version: 2.2.4
 
-Option | Patch                                                                                               | Status        | Installed on     | This run                    | Notes
--------+-----------------------------------------------------------------------------------------------------+---------------+------------------+-----------------------------+------------------------
-1      | 6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713 (MISA-2024-0029)                      | Installed     | 2024-12-13 09:15 | Skipped (already installed) | -
-3      | 9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914 (MISA-2025-0008)                                       | Not installed | -                | Not selected                | Recommended for 9.8.1.5
-5      | 9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 (MISA-2024-0028) - ** Reboot Required ** | Installed     | 2024-11-17 10:40 | Skipped (already installed) | -
-6      | 9.8 SP1 (9.8.1.5) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)                 | Installed     | 2026-11-24 11:52 | Installed                   | -
+Option | Patch                                                                                               | Status        | Installed on     | This run     | Notes
+-------+-----------------------------------------------------------------------------------------------------+---------------+------------------+--------------+------------------------
+1      | 6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713 (MISA-2024-0029)                      | Installed     | 2024-12-13 09:15 | Not selected | -
+2      | 9.7 SP1 (9.7.1.13) CVE-2024-41714 (MISA-2024-0021)                                                  | Not required  | -                | Not selected | -
+3      | 9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914 (MISA-2025-0008)                                       | Not installed | -                | Not selected | Recommended for 9.8.1.5
+4      | 9.8 GA (9.8.0.33) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)                 | Not required  | -                | Not selected | -
+5      | 9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 (MISA-2024-0028) - ** Reboot Required ** | Installed     | 2024-11-17 10:40 | Not selected | -
+6      | 9.8 SP1 (9.8.1.5) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)                 | Not installed | -                | Not selected | Recommended for 9.8.1.5
+7      | 9.8 SP3FP1 (9.8.3.203) MISA-2026-0006                                                               | Not required  | -                | Not selected | -
+8      | 10.0 (10.0.x.x) CVE-2025-52914 (MISA-2025-0008)                                                     | Not required  | -                | Not selected | -
+9      | 10.2 SP1FP2 (10.2.1.205) MISA-2026-0006                                                             | Not required  | -                | Not selected | -
+10     | 10.3 (10.3.0.18) MISA-2026-0012                                                                     | Not required  | -                | Not selected | -
 ```
 
-- **Rows:** every option that was ticked, is installed or partly installed, or is recommended for this version. Options the server doesn't need, and that weren't ticked, are left out.
+- **Rows:** one for every option (1 - 10), including the ones this version doesn't need, which show as `Not required`.
 - **Status:** `Installed`, `Newer version installed`, `Incomplete`, `Not installed` (recommended but not installed) or `Not required`.
 - **Installed on:** the install date, as `YYYY-MM-DD HH:MM`, where the script can tell it (`-` otherwise).
 - **This run:** what happened in this run. The values are `Installed`, `Skipped (already installed)`, `Skipped (newer installed)`, `Skipped (wrong version)`, `Failed` and `Not selected`.

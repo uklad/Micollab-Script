@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MiCollab Patch Installer - bump this when the script changes
-SCRIPT_VERSION="2.2.3"
+SCRIPT_VERSION="2.2.4"
 
 # Function to print colorful messages
 print_info() {
@@ -715,8 +715,8 @@ verify_option() {
 
 # ---------------------------------------------------------------------------
 # Status report, printed when the script finishes (also after an error exit
-# or when nothing was selected). A plain-text table, one row per option that
-# was selected, is installed, or is recommended for this version. Columns are
+# or when nothing was selected). A plain-text table with one row for every
+# option (1-10), including the ones not required for this version. Columns are
 # separated by " | ".
 # ---------------------------------------------------------------------------
 declare -A RUN_RESULT
@@ -744,8 +744,6 @@ print_report() {
             2) if not_affected "$opt"; then status="Not required"; else status="Incomplete"; fi ;;
             *) if [[ " $RECOMMENDED " == *" $opt "* ]]; then status="Not installed"; else status="Not required"; fi ;;
         esac
-        # Leave out options this server doesn't need and that weren't touched
-        [ "$status" = "Not required" ] && [ "$selected" = 0 ] && continue
 
         when=""
         case "$status" in Installed|Incomplete) when="$CHECK_WHEN" ;; esac
