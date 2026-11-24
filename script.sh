@@ -298,6 +298,20 @@ case "$MasVersion" in
     ;;
 esac
 
+# Option numbers go above 9, so match whole numbers, never single characters
+# (otherwise "10" would also match option 1)
+is_preselected() { [[ " $PRESELECTED " == *" $1 "* ]]; }
+unpreselect() { local p=" $PRESELECTED "; PRESELECTED="${p// $1 / }"; }
+# version_lt A B: true if version A is lower than version B
+version_lt() { [ "$1" != "$2" ] && [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ]; }
+
+# CVE-2025-52914 (MISA-2025-0008): fixed in 9.8 SP3 FP1 (9.8.3.103) and
+# 10.1 (10.1.0.10); patches exist for 9.8.x.x (option 10) and 10.0.x.x (option 11)
+case "$MasVersion" in
+  9.8.*)  version_lt "$MasVersion" "9.8.3.103" && PRESELECTED="$PRESELECTED 10" ;;
+  10.0.*) PRESELECTED="$PRESELECTED 11" ;;
+esac
+
 # RPM-based patches: menu option -> package installed by that option.
 # Keep in sync with the install_rpm calls further down.
 declare -A RPM_PATCH=(
@@ -321,7 +335,7 @@ for opt in "${!RPM_PATCH[@]}"; do
       TAG[$opt]=" [ALREADY INSTALLED]"
       print_info "Option $opt (${RPM_PATCH[$opt]}) is already installed (install date unknown)"
     fi
-    PRESELECTED="${PRESELECTED//$opt/}"
+    unpreselect "$opt"
   fi
 done
 
@@ -351,10 +365,81 @@ if cve_41713_installed_on=$(cve_41713_applied); then
   installed_date=$(date -d "$cve_41713_installed_on" '+%Y-%m-%d' 2>/dev/null)
   for opt in 4 6; do
     TAG[$opt]=" [INSTALLED ${installed_date:-date unknown}]"
-    PRESELECTED="${PRESELECTED//$opt/}"
+    unpreselect "$opt"
   done
   print_info "CVE-2024-41713 patch (options 4 and 6) was applied on ${cve_41713_installed_on:-unknown date}"
 fi
+
+# CVE-2025-52914 (MISA-2025-0008) ChangeSettingsPortlet patch, options 10/11.
+# The patch replaces ChangeSettingsPortlet.jar (original kept as .jar.old) and
+# restarts tomcat. It counts as applied when the installed jar's MD5 matches
+# the patched jar; the install date is the jar's modification time.
+CS_JAR="ChangeSettingsPortlet.jar"
+declare -A CS_LIB=(
+  [10]='/var/lib/tomcat7/webapps/ChangeSettingsPortlet/WEB-INF/lib'
+  [11]='/var/lib/tomcat9/webapps/ChangeSettingsPortlet/WEB-INF/lib'
+)
+declare -A CS_PKG=(
+  [10]='Patch_Micollab-9.8_SP3'
+  [11]='Patch_Micollab-10.0_SP1_FP1'
+)
+declare -A CS_MD5=(
+  [10]='53953ffab753228139435664ca2e292f'
+  [11]='d0485a06226897c0058ffaea27643355'
+)
+
+# Prints the install date and returns 0 if option $1's patched jar is in place
+cs_patch_applied() {
+  local f="${CS_LIB[$1]}/$CS_JAR"
+  [ -f "$f" ] || return 1
+  [ "$(md5sum < "$f" | awk '{print $1}')" = "${CS_MD5[$1]}" ] || return 1
+  date -r "$f" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown date"
+}
+
+# Install option $1's ChangeSettingsPortlet patch
+install_cs_patch() {
+  local opt=$1 lib="${CS_LIB[$1]}" pkg="${CS_PKG[$1]}" got
+  if cs_patch_applied "$opt" >/dev/null; then
+    print_info "CVE-2025-52914 patch is already applied (option $opt). Skipping."
+    return 0
+  fi
+  if [ ! -f "$lib/$CS_JAR" ]; then
+    print_error "$lib/$CS_JAR not found - option $opt does not match this MiCollab version. Skipping."
+    return 1
+  fi
+
+  download_and_extract "https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2025-52914/$pkg.tar.gz"
+
+  got=$(md5sum < "/tmp/$pkg/$CS_JAR" | awk '{print $1}')
+  if [ "$got" != "${CS_MD5[$opt]}" ]; then
+    print_error "Checksum mismatch for $pkg/$CS_JAR (got $got). Not installing."
+    exit 1
+  fi
+  print_success "Checksum verified for $pkg/$CS_JAR"
+
+  if [ -e "$lib/$CS_JAR.old" ]; then
+    print_info "$CS_JAR.old already exists - keeping it as the original backup"
+  else
+    print_info "Renaming $CS_JAR to $CS_JAR.old"
+    mv "$lib/$CS_JAR" "$lib/$CS_JAR.old" || { print_error "Failed to rename $CS_JAR"; exit 1; }
+  fi
+
+  print_info "Copying patched $CS_JAR to $lib"
+  cp -f "/tmp/$pkg/$CS_JAR" "$lib/$CS_JAR" || { print_error "Failed to copy $CS_JAR"; exit 1; }
+  # Match the original file's owner and permissions
+  chown --reference="$lib/$CS_JAR.old" "$lib/$CS_JAR" 2>/dev/null
+  chmod --reference="$lib/$CS_JAR.old" "$lib/$CS_JAR" 2>/dev/null
+  print_success "CVE-2025-52914 patch installed (option $opt)"
+  TOMCAT_RESTART_NEEDED=1
+}
+
+for opt in 10 11; do
+  if cs_installed_on=$(cs_patch_applied "$opt"); then
+    TAG[$opt]=" [INSTALLED ${cs_installed_on%% *}]"
+    unpreselect "$opt"
+    print_info "CVE-2025-52914 patch (option $opt) was applied on $cs_installed_on"
+  fi
+done
 
 # Menu labels, one per option
 MENU_LABELS=(
@@ -367,6 +452,8 @@ MENU_LABELS=(
   [7]="9.8 SP3FP1 (9.8.3.203) MISA-2026-0006"
   [8]="10.2 SP1FP2 (10.2.1.205) MISA-2026-0006"
   [9]="10.3 (10.3.0.18) MISA-2026-0012"
+  [10]="9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914"
+  [11]="10.0 (10.0.x.x) CVE-2025-52914"
 )
 
 # Colour each item (dialog --colors: \Zb bold, \Z1 red, \Z2 green, \Z3 yellow,
@@ -375,10 +462,10 @@ MENU_LABELS=(
 #   red    = recommended for this version (preselected)
 #   yellow = not required for this version
 MENU_ITEMS=()
-for opt in 1 2 3 4 5 6 7 8 9; do
+for opt in 1 2 3 4 5 6 7 8 9 10 11; do
   if [ -n "${TAG[$opt]}" ]; then
     colour='\Zb\Z2'; state=off
-  elif [[ "$PRESELECTED" == *$opt* ]]; then
+  elif is_preselected "$opt"; then
     colour='\Zb\Z1'; state=on
   else
     colour='\Zb\Z3'; state=off
@@ -422,11 +509,12 @@ EOF
 
 # Display the dialog with preselected options
 CHOICES=$(DIALOGRC="$DIALOG_THEME" dialog --colors --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 21 150 9 \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 23 150 11 \
     "${MENU_ITEMS[@]}" \
     3>&1 1>&2 2>&3 3>&-)
 rm -f "$DIALOG_THEME"
 clear
+CHOICES="${CHOICES//\"/}"   # some dialog versions quote each tag
 
 if [ -z "$CHOICES" ]; then
     print_error "No options selected. Exiting."
@@ -481,6 +569,9 @@ for CHOICE in $CHOICES; do
             install_rpm 'awc-audio-newupg-10.3.0.8-1.x86_64.rpm'
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
+        10|11)
+            install_cs_patch "$CHOICE"
+            ;;
 	*)
             print_error "Invalid choice. Skipping."
             ;;
@@ -490,13 +581,25 @@ done
 # Restart AWV once, after all selected patches are installed
 if [ "$AWV_RESTART_NEEDED" = 1 ]; then
     restart_awv_services || AWV_RESTART_FAILED=1
-elif [[ "$CHOICES" =~ [789] ]]; then
+elif [[ " $CHOICES " =~ \ (7|8|9)\  ]]; then
     # An AWV patch (7/8/9) was selected but its RPM was already installed
     print_info "AWV restart skipped: the selected AWV patch was already installed, so nothing changed"
 fi
 
+# Restart tomcat once if the CVE-2025-52914 patch was installed
+# (Mitel: no user impact restarting this service)
+if [ "$TOMCAT_RESTART_NEEDED" = 1 ]; then
+    print_info "Restarting tomcat"
+    if service tomcat restart </dev/null; then
+        print_success "tomcat restarted"
+    else
+        print_error "tomcat restart failed - run: service tomcat restart"
+        AWV_RESTART_FAILED=1
+    fi
+fi
+
 if [ "$AWV_RESTART_FAILED" = 1 ]; then
-    print_error "Patches installed, but the AWV restart needs checking (see errors above)"
+    print_error "Patches installed, but a service restart needs checking (see errors above)"
     exit 1
 fi
 
