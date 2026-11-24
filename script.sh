@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MiCollab Patch Installer - bump this when the script changes
-SCRIPT_VERSION="2.2.2"
+SCRIPT_VERSION="2.2.3"
 
 # Function to print colorful messages
 print_info() {
@@ -273,7 +273,6 @@ if [ -z "$MasVersion" ]; then
 fi
 
 print_info "MiCollab Patch Installer v$SCRIPT_VERSION"
-print_info "Mitel security advisories: https://www.mitel.com/support/security-advisories"
 print_success "MasVersion Detected as: $MasVersion"
 
 # Determine the preselected options based on MasVersion
@@ -715,24 +714,18 @@ verify_option() {
 }
 
 # ---------------------------------------------------------------------------
-# Status report, printed when the script finishes (also after an error exit).
-# CSV, one row per option that was selected, is installed, or is recommended
-# for this version, so it can be pasted into a spreadsheet.
+# Status report, printed when the script finishes (also after an error exit
+# or when nothing was selected). A plain-text table, one row per option that
+# was selected, is installed, or is recommended for this version. Columns are
+# separated by " | ".
 # ---------------------------------------------------------------------------
 declare -A RUN_RESULT
 CURRENT_CHOICE=""
 
-csv_row() {
-    local out="" f
-    for f in "$@"; do
-        f="${f//\"/\"\"}"
-        out+="${out:+,}\"$f\""
-    done
-    printf '%s\n' "$out"
-}
-
 print_report() {
     local host today opt status when notes run selected
+    local -a rows widths cols
+    local row i w line sep
     host=$(hostname 2>/dev/null)
     today=$(date '+%Y-%m-%d %H:%M')
     # Exited part-way through an install (download or patcher error)
@@ -740,9 +733,8 @@ print_report() {
         RUN_RESULT[$CURRENT_CHOICE]="Failed"
     fi
 
-    echo
-    echo "==================== PATCH STATUS REPORT (CSV) ===================="
-    csv_row "Hostname" "MiCollab version" "Report date" "Option" "Patch" "Status" "Installed on" "This run" "Notes"
+    # Rows are tab-separated here, then padded to column widths below
+    rows=("Option"$'\t'"Patch"$'\t'"Status"$'\t'"Installed on"$'\t'"This run"$'\t'"Notes")
     for opt in 1 2 3 4 5 6 7 8 9 10; do
         selected=0; [[ " $CHOICES " == *" $opt "* ]] && selected=1
         run_check "$opt"
@@ -775,9 +767,47 @@ print_report() {
         run="${RUN_RESULT[$opt]}"
         [ -z "$run" ] && { [ "$selected" = 1 ] && run="Not run" || run="Not selected"; }
 
-        csv_row "$host" "$MasVersion" "$today" "$opt" "${MENU_LABELS[$opt]}" "$status" "$when" "$run" "$notes"
+        rows+=("$opt"$'\t'"${MENU_LABELS[$opt]}"$'\t'"$status"$'\t'"${when:--}"$'\t'"$run"$'\t'"${notes:--}")
     done
-    echo "==================================================================="
+
+    # Width of each column
+    widths=(0 0 0 0 0 0)
+    for row in "${rows[@]}"; do
+        IFS=$'\t' read -r -a cols <<< "$row"
+        for i in 0 1 2 3 4 5; do
+            [ "${#cols[$i]}" -gt "${widths[$i]}" ] && widths[$i]=${#cols[$i]}
+        done
+    done
+
+    echo
+    echo "PATCH STATUS REPORT"
+    echo "Hostname:          $host"
+    echo "MiCollab version:  $MasVersion"
+    echo "Report date:       $today"
+    echo "Installer version: $SCRIPT_VERSION"
+    echo
+    for row in "${rows[@]}"; do
+        IFS=$'\t' read -r -a cols <<< "$row"
+        line=""
+        for i in 0 1 2 3 4 5; do
+            if [ "$i" -eq 5 ]; then
+                line+="${cols[$i]}"                       # no padding on the last column
+            else
+                line+=$(printf '%-*s | ' "${widths[$i]}" "${cols[$i]}")
+            fi
+        done
+        echo "$line"
+        if [ -z "$sep" ]; then
+            # Rule under the header row
+            sep=""
+            for i in 0 1 2 3 4 5; do
+                w=${widths[$i]}
+                sep+=$(printf '%*s' "$w" '' | tr ' ' '-')
+                [ "$i" -lt 5 ] && sep+="-+-"
+            done
+            echo "$sep"
+        fi
+    done
 }
 
 declare -A CVE_41714_ZIP=( [2]='9.7%20SP1%20patch.zip' [4]='9.8%20GA%20patch.zip' [6]='9.8%20SP1%20patch.zip' )

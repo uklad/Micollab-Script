@@ -1,7 +1,5 @@
 # Micollab Patch Installer
-A bash script (v2.2.2) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
-
-The advisories are listed on Mitel's security advisories page: https://www.mitel.com/support/security-advisories. Search there for a MISA number for the full advisory.
+A bash script (v2.2.3) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
 
 ## What it does
 1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
@@ -13,7 +11,7 @@ The advisories are listed on Mitel's security advisories page: https://www.mitel
 4. **Installs the patches you tick**, following Mitel's instructions for each. It downloads them from this repo with `curl`, checks the download where Mitel supplies a checksum, and keeps the original files as backups. Patches that are already installed are skipped, and RPMs are never downgraded.
 5. **Restarts what each patch needs:** the AWV services after the AWV patches, and tomcat after the ChangeSettingsPortlet patch, once each at the end.
 6. **Verifies every install** with the same check, and exits with an error listing anything that didn't apply.
-7. **Prints a status report** at the end, as CSV you can paste into a spreadsheet. See [Status report](#status-report).
+7. **Prints a status report** at the end, as a plain-text table. See [Status report](#status-report).
 
 ## What it doesn't do
 - **It doesn't revert patches.** Reverting is manual; the steps for each patch are in [More notes](#more-notes).
@@ -93,25 +91,30 @@ Mitel notes the CVE-2024-41713 (MISA-2024-0029) patch also corrects CVE-2025-529
 
 ## Status report
 
-When the script finishes, it prints a CSV report between two `=====` lines. It also prints one if the script stops early with an error, and if you tick nothing (or press Cancel). That way you can run the script just to report on a server: nothing is installed and it exits normally. Each option is checked again for the report, so it shows the server's state at the end of the run.
+When the script finishes, it prints a plain-text status report. It also prints one if the script stops early with an error, and if you tick nothing (or press Cancel). That way you can run the script just to report on a server: nothing is installed and it exits normally. Each option is checked again for the report, so it shows the server's state at the end of the run.
 
 ```
-==================== PATCH STATUS REPORT (CSV) ====================
-"Hostname","MiCollab version","Report date","Option","Patch","Status","Installed on","This run","Notes"
-"mcollab01","9.8.1.5","2026-11-24 11:08","1","6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713 (MISA-2024-0029)","Installed","2024-12-13 09:15","Skipped (already installed)",""
-"mcollab01","9.8.1.5","2026-11-24 11:08","6","9.8 SP1 (9.8.1.5) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)","Installed","2026-11-24 11:08","Installed",""
-===================================================================
+PATCH STATUS REPORT
+Hostname:          mcollab01
+MiCollab version:  9.8.1.5
+Report date:       2026-11-24 11:52
+Installer version: 2.2.3
+
+Option | Patch                                                                                               | Status        | Installed on     | This run                    | Notes
+-------+-----------------------------------------------------------------------------------------------------+---------------+------------------+-----------------------------+------------------------
+1      | 6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713 (MISA-2024-0029)                      | Installed     | 2024-12-13 09:15 | Skipped (already installed) | -
+3      | 9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914 (MISA-2025-0008)                                       | Not installed | -                | Not selected                | Recommended for 9.8.1.5
+5      | 9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 (MISA-2024-0028) - ** Reboot Required ** | Installed     | 2024-11-17 10:40 | Skipped (already installed) | -
+6      | 9.8 SP1 (9.8.1.5) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)                 | Installed     | 2026-11-24 11:52 | Installed                   | -
 ```
 
 - **Rows:** every option that was ticked, is installed or partly installed, or is recommended for this version. Options the server doesn't need, and that weren't ticked, are left out.
 - **Status:** `Installed`, `Newer version installed`, `Incomplete`, `Not installed` (recommended but not installed) or `Not required`.
-- **Installed on:** the install date, as `YYYY-MM-DD HH:MM`, where the script can tell it.
+- **Installed on:** the install date, as `YYYY-MM-DD HH:MM`, where the script can tell it (`-` otherwise).
 - **This run:** what happened in this run. The values are `Installed`, `Skipped (already installed)`, `Skipped (newer installed)`, `Skipped (wrong version)`, `Failed` and `Not selected`.
 - **Notes:** the missing parts for `Incomplete` and the newer package version. They also say `Reboot required` after option 5 is installed, and flag a failed AWV restart.
 
-To get the report into a spreadsheet, copy the lines between the `=====` markers, header row included. Leave out the header when you add more servers.
-- **Excel:** paste into column A, then use **Data > Text to Columns > Delimited > Comma**.
-- **Google Sheets:** paste, then choose **Split text to columns** in the paste menu.
+Columns are separated by ` | `. To split the table into spreadsheet columns, paste it and use **Text to Columns** (Excel) or **Split text to columns** (Google Sheets) with `|` as the separator.
 
 ## More notes
 - The CVE-2024-41714 (MISA-2024-0021) options keep the original files as `views_old.py` and `feedback_old.py`. An existing backup is never overwritten, so the original survives a re-run.
