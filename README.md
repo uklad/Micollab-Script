@@ -1,5 +1,7 @@
 # Micollab Patch Installer
-A bash script (v2.2.1) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+A bash script (v2.2.2) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+
+The advisories are listed on Mitel's security advisories page: https://www.mitel.com/support/security-advisories. Search there for a MISA number for the full advisory.
 
 ## What it does
 1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
@@ -15,7 +17,7 @@ A bash script (v2.2.1) that checks which Mitel security patches a MiCollab serve
 
 ## What it doesn't do
 - **It doesn't revert patches.** Reverting is manual; the steps for each patch are in [More notes](#more-notes).
-- **It doesn't reboot the server.** CVE-2024-47223 (option 5) needs a reboot, and the script reminds you at the end.
+- **It doesn't reboot the server.** CVE-2024-47223 (MISA-2024-0028, option 5) needs a reboot, and the script reminds you at the end.
 - **It doesn't upgrade MiCollab.** Where Mitel only offers an upgrade for your version (e.g. MISA-2026-0006 on 10.0 - 10.2 other than 10.2.1.205), you need to upgrade instead.
 - **It doesn't apply the MBG or Server Manager mitigations** in Mitel's advisories, such as disabling the AWV proxy rule.
 - **It doesn't answer Mitel's own prompts for you.** Options 1, 4 and 6 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
@@ -47,7 +49,7 @@ The MiCollab version is checked automatically via `config getprop sysconfig MasV
 | 10.3.0.18 | 10 |
 | Any other version | none |
 
-For MiCollab 6.0 - 9.6 and MiVB-X, manually select **option 1** for the CVE-2024-41713 patch (it is only auto-preselected on the versions listed above).
+For MiCollab 6.0 - 9.6 and MiVB-X, manually select **option 1** for the CVE-2024-41713 (MISA-2024-0029) patch (it is only auto-preselected on the versions listed above).
 
 ## Menu options
 
@@ -55,12 +57,12 @@ Options are listed in version order, by the first version each one applies to.
 
 | # | Description |
 |---|---|
-| 1 | 6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) - CVE-2024-41713 |
-| 2 | 9.7 SP1 (9.7.1.13) - CVE-2024-41714 |
+| 1 | 6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) - CVE-2024-41713 (MISA-2024-0029) |
+| 2 | 9.7 SP1 (9.7.1.13) - CVE-2024-41714 (MISA-2024-0021) |
 | 3 | 9.8 (9.8.x.x below 9.8.3.103) - CVE-2025-52914 (MISA-2025-0008) |
-| 4 | 9.8 GA (9.8.0.33) - CVE-2024-41714 & CVE-2024-35287 |
-| 5 | 9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) - CVE-2024-47223 — **reboot required** |
-| 6 | 9.8 SP1 (9.8.1.5) - CVE-2024-41714 & CVE-2024-35287 |
+| 4 | 9.8 GA (9.8.0.33) - CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023) |
+| 5 | 9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) - CVE-2024-47223 (MISA-2024-0028) — **reboot required** |
+| 6 | 9.8 SP1 (9.8.1.5) - CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023) |
 | 7 | 9.8 SP3FP1 (9.8.3.203) - MISA-2026-0006 |
 | 8 | 10.0 (10.0.x.x) - CVE-2025-52914 (MISA-2025-0008) |
 | 9 | 10.2 SP1FP2 (10.2.1.205) - MISA-2026-0006 |
@@ -76,18 +78,18 @@ Before the menu opens, every option is checked against what its patch actually c
 
 | Option(s) | Patch | Counts as installed when |
 |---|---|---|
-| 1 | CVE-2024-41713 | **All three** are present: the latest `/usr/vm/config/Revision` entry (what `sinfo` shows) is `CVE-2024-41713 : Path Traversal Combined Fix Patch` and not `REVERSED`; the `26npm-ivr-rewrite` template holds both `[R=404]` rules for `/npm-admin` and `/npm-pwg`; and the live `/etc/httpd/conf/httpd.conf` passes Mitel's verification (`grep "npm.*404" /etc/httpd/conf/httpd.conf` shows both an npm-admin and an npm-pwg rule) |
-| 2, 4, 6 | CVE-2024-41714 | The installed `views.py` and `feedback.py` match the patched files by MD5. `feedback.py` differs per version, so it decides which of the three options is installed |
-| 4, 6 | + CVE-2024-35287 (NPM-4630) | The latest Revision entry is `NPM-4630 - Server Console escape to bash as root.` and `/usr/vm/bin/startnpm` matches the patched file by MD5 |
+| 1 | CVE-2024-41713 (MISA-2024-0029) | **All three** are present: the latest `/usr/vm/config/Revision` entry (what `sinfo` shows) is `CVE-2024-41713 : Path Traversal Combined Fix Patch` and not `REVERSED`; the `26npm-ivr-rewrite` template holds both `[R=404]` rules for `/npm-admin` and `/npm-pwg`; and the live `/etc/httpd/conf/httpd.conf` passes Mitel's verification (`grep "npm.*404" /etc/httpd/conf/httpd.conf` shows both an npm-admin and an npm-pwg rule) |
+| 2, 4, 6 | CVE-2024-41714 (MISA-2024-0021) | The installed `views.py` and `feedback.py` match the patched files by MD5. `feedback.py` differs per version, so it decides which of the three options is installed |
+| 4, 6 | + CVE-2024-35287 (MISA-2024-0023, NPM-4630) | The latest Revision entry is `NPM-4630 - Server Console escape to bash as root.` and `/usr/vm/bin/startnpm` matches the patched file by MD5 |
 | 5, 7, 9, 10 | RPMs | The exact package version is installed, **or a newer version** of the same package is (shown as `[NEWER x INSTALLED]`; the option is skipped so the package is never downgraded) |
-| 3, 8 | CVE-2025-52914 | The live `ChangeSettingsPortlet.jar` matches the patched jar by MD5 |
+| 3, 8 | CVE-2025-52914 (MISA-2025-0008) | The live `ChangeSettingsPortlet.jar` matches the patched jar by MD5 |
 
 Menu colours:
 - **Green:** installed, with the date (e.g. `[INSTALLED 2026-11-17]`), or superseded by a newer version. Not ticked, and skipped if you tick it.
-- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 4 and 6 then install only the missing part. This only applies on versions the issue affects: CVE-2024-41713 (option 1) up to 9.8 SP1 FP2 (9.8.1.201), and CVE-2024-41714 (options 2, 4, 6) up to 9.8.1.5. Later releases include the fix and may share some patched files (for example, 9.8.2.12's `feedback.py` matches a CVE-2024-41714 patch file while its `views.py` is newer), so a partial match there is shown as not required.
+- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 4 and 6 then install only the missing part. This only applies on versions the issue affects: CVE-2024-41713 (MISA-2024-0029, option 1) up to 9.8 SP1 FP2 (9.8.1.201), and CVE-2024-41714 (MISA-2024-0021, options 2, 4, 6) up to 9.8.1.5. Later releases include the fix and may share some patched files (for example, 9.8.2.12's `feedback.py` matches a CVE-2024-41714 (MISA-2024-0021) patch file while its `views.py` is newer), so a partial match there is shown as not required.
 - **Yellow:** not required for this version.
 
-Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-0007).
+Mitel notes the CVE-2024-41713 (MISA-2024-0029) patch also corrects CVE-2025-52913 (MISA-2025-0007).
 
 ## Status report
 
@@ -96,8 +98,8 @@ When the script finishes, it prints a CSV report between two `=====` lines. It a
 ```
 ==================== PATCH STATUS REPORT (CSV) ====================
 "Hostname","MiCollab version","Report date","Option","Patch","Status","Installed on","This run","Notes"
-"mcollab01","9.8.1.5","2026-11-24 11:08","1","6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713","Installed","2024-12-13 09:15","Skipped (already installed)",""
-"mcollab01","9.8.1.5","2026-11-24 11:08","6","9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287","Installed","2026-11-24 11:08","Installed",""
+"mcollab01","9.8.1.5","2026-11-24 11:08","1","6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713 (MISA-2024-0029)","Installed","2024-12-13 09:15","Skipped (already installed)",""
+"mcollab01","9.8.1.5","2026-11-24 11:08","6","9.8 SP1 (9.8.1.5) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)","Installed","2026-11-24 11:08","Installed",""
 ===================================================================
 ```
 
@@ -112,7 +114,7 @@ To get the report into a spreadsheet, copy the lines between the `=====` markers
 - **Google Sheets:** paste, then choose **Split text to columns** in the paste menu.
 
 ## More notes
-- The CVE-2024-41714 options keep the original files as `views_old.py` and `feedback_old.py`. An existing backup is never overwritten, so the original survives a re-run.
+- The CVE-2024-41714 (MISA-2024-0021) options keep the original files as `views_old.py` and `feedback_old.py`. An existing backup is never overwritten, so the original survives a re-run.
 - The script may pause for a few seconds at points during installation. Options 1, 4 and 6 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
 - **Option 5 (CVE-2024-47223 / MISA-2024-0028)** installs `awc-web-9.8.1.103-1.i386.rpm` with `rpm -Uvh --noscripts`, as in Mitel's instructions. The same RPM is used for every 9.8 system from GA to SP1FP2. It **requires a reboot** to take effect; the script reminds you at the end but does not reboot, since Mitel says to reboot when convenient. `patch.zip` also contains the revert RPMs, which are extracted to `/tmp` but not installed. The issue is fixed without a patch in 9.8.2.12 and later.
 - **To revert option 5**, from `/tmp` run the command for your version, then reboot (reverting is manual and not done by the script):

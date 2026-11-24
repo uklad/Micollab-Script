@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MiCollab Patch Installer - bump this when the script changes
-SCRIPT_VERSION="2.2.1"
+SCRIPT_VERSION="2.2.2"
 
 # Function to print colorful messages
 print_info() {
@@ -273,6 +273,7 @@ if [ -z "$MasVersion" ]; then
 fi
 
 print_info "MiCollab Patch Installer v$SCRIPT_VERSION"
+print_info "Mitel security advisories: https://www.mitel.com/support/security-advisories"
 print_success "MasVersion Detected as: $MasVersion"
 
 # Determine the preselected options based on MasVersion
@@ -510,31 +511,31 @@ mark_status() {  # $1 = option, $2 = status, $3 = description
         # "Fri Dec 13 09:15:22 GMT 2024": show both as YYYY-MM-DD
         short=$(date -d "$CHECK_WHEN" '+%Y-%m-%d' 2>/dev/null) || short="${CHECK_WHEN%% *}"
         TAG[$1]=" [INSTALLED $short]"
-        print_info "Option $1 ($3) was installed on $CHECK_WHEN"
+        print_info "Option $1 - $3: installed on $CHECK_WHEN"
       else
         TAG[$1]=" [ALREADY INSTALLED]"
-        print_info "Option $1 ($3) is installed (install date unknown)"
+        print_info "Option $1 - $3: installed (install date unknown)"
       fi
       unpreselect "$1"
       ;;
     3)
       TAG[$1]=" [NEWER ${CHECK_NEWER} INSTALLED]"
-      print_info "Option $1 ($3): a newer version (${CHECK_NEWER}) is installed"
+      print_info "Option $1 - $3: a newer version (${CHECK_NEWER}) is installed"
       unpreselect "$1"
       ;;
     2)
       TAG[$1]=" [INCOMPLETE - missing: $CHECK_MISSING]"
       PARTIAL[$1]=1
       is_preselected "$1" || PRESELECTED="$PRESELECTED $1"
-      print_error "Option $1 ($3) is only partly installed - missing: $CHECK_MISSING"
+      print_error "Option $1 - $3: only partly installed - missing: $CHECK_MISSING"
       ;;
   esac
 }
 
-check_cve_41713;               mark_status 1 $? "CVE-2024-41713"
-check_cve_41714 2;             mark_status 2 $? "CVE-2024-41714"
-check_41714_and_4630 4;        mark_status 4 $? "CVE-2024-41714 & CVE-2024-35287"
-check_41714_and_4630 6;        mark_status 6 $? "CVE-2024-41714 & CVE-2024-35287"
+check_cve_41713;               mark_status 1 $? "CVE-2024-41713 (MISA-2024-0029)"
+check_cve_41714 2;             mark_status 2 $? "CVE-2024-41714 (MISA-2024-0021)"
+check_41714_and_4630 4;        mark_status 4 $? "CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)"
+check_41714_and_4630 6;        mark_status 6 $? "CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)"
 for opt in 5 7 9 10; do
   check_rpm "$opt";            mark_status "$opt" $? "${RPM_NAME[$opt]}-${RPM_VR[$opt]}"
 done
@@ -569,7 +570,7 @@ cs_patch_applied() {
 install_cs_patch() {
   local opt=$1 lib="${CS_LIB[$1]}" pkg="${CS_PKG[$1]}" got
   if cs_patch_applied "$opt" >/dev/null; then
-    print_info "CVE-2025-52914 patch is already applied (option $opt). Skipping."
+    print_info "CVE-2025-52914 (MISA-2025-0008) patch is already applied (option $opt). Skipping."
     return 0
   fi
   if [ ! -f "$lib/$CS_JAR" ]; then
@@ -598,7 +599,7 @@ install_cs_patch() {
   # Match the original file's owner and permissions
   chown --reference="$lib/$CS_JAR.old" "$lib/$CS_JAR" 2>/dev/null
   chmod --reference="$lib/$CS_JAR.old" "$lib/$CS_JAR" 2>/dev/null
-  print_success "CVE-2025-52914 patch installed (option $opt)"
+  print_success "CVE-2025-52914 (MISA-2025-0008) patch installed (option $opt)"
   TOMCAT_RESTART_NEEDED=1
 }
 
@@ -608,20 +609,20 @@ check_cs() {  # $1 = option
   CHECK_WHEN=$(cs_patch_applied "$1")
 }
 for opt in 3 8; do
-  check_cs "$opt"; mark_status "$opt" $? "CVE-2025-52914"
+  check_cs "$opt"; mark_status "$opt" $? "CVE-2025-52914 (MISA-2025-0008)"
 done
 
 # Menu labels, one per option, in version order (by the first version each
 # option applies to)
 MENU_LABELS=(
-  [1]="6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713"
-  [2]="9.7 SP1 (9.7.1.13) CVE-2024-41714"
-  [3]="9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914"
-  [4]="9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287"
-  [5]="9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **"
-  [6]="9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287"
+  [1]="6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713 (MISA-2024-0029)"
+  [2]="9.7 SP1 (9.7.1.13) CVE-2024-41714 (MISA-2024-0021)"
+  [3]="9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914 (MISA-2025-0008)"
+  [4]="9.8 GA (9.8.0.33) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)"
+  [5]="9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 (MISA-2024-0028) - ** Reboot Required **"
+  [6]="9.8 SP1 (9.8.1.5) CVE-2024-41714 (MISA-2024-0021) & CVE-2024-35287 (MISA-2024-0023)"
   [7]="9.8 SP3FP1 (9.8.3.203) MISA-2026-0006"
-  [8]="10.0 (10.0.x.x) CVE-2025-52914"
+  [8]="10.0 (10.0.x.x) CVE-2025-52914 (MISA-2025-0008)"
   [9]="10.2 SP1FP2 (10.2.1.205) MISA-2026-0006"
   [10]="10.3 (10.3.0.18) MISA-2026-0012"
 )
@@ -812,13 +813,13 @@ for CHOICE in $CHOICES; do
         4|6)
             # Install only the part(s) that are missing
             if check_cve_41714 "$CHOICE"; then
-                print_info "CVE-2024-41714 files already in place (option $CHOICE)"
+                print_info "CVE-2024-41714 (MISA-2024-0021) files already in place (option $CHOICE)"
             else
                 download_and_extract "https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/${CVE_41714_ZIP[$CHOICE]}"
                 rename_and_copy_files
             fi
             if check_npm_4630; then
-                print_info "CVE-2024-35287 (NPM-4630) already in place (option $CHOICE)"
+                print_info "CVE-2024-35287 (MISA-2024-0023, NPM-4630) already in place (option $CHOICE)"
             else
                 download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
                 run_patcher_NPM-4630
@@ -888,7 +889,7 @@ fi
 
 if [ "$REBOOT_NEEDED" = 1 ]; then
     # Not done automatically: Mitel says to reboot when convenient to the customer
-    print_info "CVE-2024-47223 (option 5) needs a reboot to take effect. Reboot the MiCollab server when convenient."
+    print_info "CVE-2024-47223 (MISA-2024-0028, option 5) needs a reboot to take effect. Reboot the MiCollab server when convenient."
 fi
 
 if [ -n "$VERIFY_FAILED" ]; then
