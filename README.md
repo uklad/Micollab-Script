@@ -1,5 +1,24 @@
 # Micollab Patch Installer
-A simple bash script to quickly apply CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 to MiCollab servers running 6.0 - 10.3 software.
+A bash script (v2.1.0) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+
+## What it does
+1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
+2. **Checks what is already installed** by looking at what each patch actually changes on the server: files (by MD5), the NPM Revision record that `sinfo` shows, the live `httpd.conf` rules, and RPM package versions. See [Installed checks](#installed-checks).
+3. **Shows a colour-coded menu**, in version order, titled with the script and MiCollab versions:
+   - green: installed (with the date), or a newer version is installed
+   - red: recommended for this version, or only partly installed
+   - yellow: not required for this version
+4. **Installs the patches you tick**, following Mitel's instructions for each. It downloads them from this repo with `curl`, checks the download where Mitel supplies a checksum, and keeps the original files as backups. Patches that are already installed are skipped, and RPMs are never downgraded.
+5. **Restarts what each patch needs:** the AWV services after the AWV patches, and tomcat after the ChangeSettingsPortlet patch, once each at the end.
+6. **Verifies every install** with the same check, and exits with an error listing anything that didn't apply.
+
+## What it doesn't do
+- **It doesn't revert patches.** Reverting is manual; the steps for each patch are in [More notes](#more-notes).
+- **It doesn't reboot the server.** CVE-2024-47223 (option 5) needs a reboot, and the script reminds you at the end.
+- **It doesn't upgrade MiCollab.** Where Mitel only offers an upgrade for your version (e.g. MISA-2026-0006 on 10.0 - 10.2 other than 10.2.1.205), you need to upgrade instead.
+- **It doesn't apply the MBG or Server Manager mitigations** in Mitel's advisories, such as disabling the AWV proxy rule.
+- **It doesn't answer Mitel's own prompts for you.** Options 1, 4 and 6 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
+- **It doesn't make a backup.** Take an MSL backup before running it, as Mitel advises.
 
 ## Installation
 Script will check the current MiCollab version and preselect the recommended patch(es).
