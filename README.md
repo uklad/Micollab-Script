@@ -45,7 +45,8 @@ For MiCollab 6.0 - 9.7 and MiVB-X, manually select **option 6** for the correct 
 - Requires `curl` (used to download the script and the patch files).
 - Requires `dialog` to be installed on the server; the script will exit with an error if it's not found.
 - **RPM-based options (5, 7, 8, 9)** are checked before the menu opens. If the patch's RPM is already installed, the option is shown in green, labelled with its install date from the RPM database (e.g. `[INSTALLED 2026-11-17]`, or `[ALREADY INSTALLED]` if the date can't be read), and is not preselected. Menu colours: green = already installed, red = recommended for this version, yellow = not required. If you tick it anyway, the install is skipped.
-- Options 1, 2, 3, 4 and 6 (file-based patches) have no such check, so reapplying them is not prevented.
+- **Options 4 and 6 (CVE-2024-41713)** are checked the same way, using the NPM Revision file `/usr/vm/config/Revision` (the same record `sinfo` shows). If the latest entry is `Patch notes: CVE-2024-41713 : Path Traversal Combined Fix Patch`, both options are shown green with the date it was applied, and are skipped if ticked. If the patch was later removed with `patcher.sh -r` (a `REVERSED` entry), it counts as not applied. Mitel notes this patch also corrects CVE-2025-52913 (MISA-2025-0007).
+- Options 1, 2 and 3 (file-based patches) have no such check, so reapplying them is not prevented.
 - The script may pause for a few seconds at points during installation. No user interaction is required once the patching process has started.
 - The patch for CVE-2024-47223 (option 5) requires a reboot to take effect.
 - Options 7 and 8 (MISA-2026-0006) each download a zip containing two RPM versions; the script installs only the intended version (9.8.3.202 for 9.8 SP3FP1, 10.3.0.7 for 10.2 SP1FP2) and leaves the other file extracted but unused.

@@ -310,6 +310,37 @@ for opt in "${!RPM_PATCH[@]}"; do
   fi
 done
 
+# Check whether the CVE-2024-41713 patch (options 4 and 6) is applied.
+# Its patcher.sh writes "date" then "Patch notes: <note>" to the NPM Revision
+# file (this is what sinfo shows); removing it (patcher.sh -r) writes
+# "Patch notes: REVERSED <note>". The latest entry wins.
+# Prints the install date and returns 0 if applied, otherwise returns 1.
+CVE_41713_NOTE="CVE-2024-41713 : Path Traversal Combined Fix Patch"
+CVE_41713_REV_FILE="/usr/vm/config/Revision"
+cve_41713_applied() {
+  [ -r "$CVE_41713_REV_FILE" ] || return 1
+  local result reversed when
+  result=$(awk -v note="$CVE_41713_NOTE" '
+    /^Patch notes: / && index($0, note) { when = prev; rev = ($0 ~ /REVERSED/) ? 1 : 0; found = 1 }
+    { prev = $0 }
+    END { if (found) print rev "|" when }' "$CVE_41713_REV_FILE")
+  [ -n "$result" ] || return 1
+  reversed="${result%%|*}"
+  when="${result#*|}"
+  [ "$reversed" = 0 ] || return 1
+  echo "$when"
+  return 0
+}
+
+if cve_41713_installed_on=$(cve_41713_applied); then
+  installed_date=$(date -d "$cve_41713_installed_on" '+%Y-%m-%d' 2>/dev/null)
+  for opt in 4 6; do
+    TAG[$opt]=" [INSTALLED ${installed_date:-date unknown}]"
+    PRESELECTED="${PRESELECTED//$opt/}"
+  done
+  print_info "CVE-2024-41713 patch (options 4 and 6) was applied on ${cve_41713_installed_on:-unknown date}"
+fi
+
 # Menu labels, one per option
 MENU_LABELS=(
   [1]="9.7 SP1 (9.7.1.13) CVE-2024-41714"
@@ -406,17 +437,19 @@ for CHOICE in $CHOICES; do
             rename_and_copy_files
             run_patcher_NPM-4630
             ;;
-        4)
-            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
-            run_patcher_CVE-2024-41713
+        4|6)
+            # Options 4 and 6 apply the same patch; skip it if already applied
+            # (re-running it restarts NuPoint for nothing)
+            if cve_41713_applied >/dev/null; then
+                print_info "CVE-2024-41713 patch is already applied (option $CHOICE). Skipping."
+            else
+                download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
+                run_patcher_CVE-2024-41713
+            fi
             ;;
         5)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
             install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
-            ;;
-        6)
-            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
-            run_patcher_CVE-2024-41713
             ;;
         7)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26.zip'
