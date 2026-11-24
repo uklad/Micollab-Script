@@ -64,7 +64,7 @@ Before the menu opens, every option is checked against what its patch actually c
 
 Menu colours:
 - **Green:** installed, with the date (e.g. `[INSTALLED 2026-11-17]`), or superseded by a newer version. Not ticked, and skipped if you tick it.
-- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 5 and 7 then install only the missing part.
+- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 5 and 7 then install only the missing part. This only applies on versions the issue affects: CVE-2024-41713 (options 1, 2) up to 9.8.2.12, and CVE-2024-41714 (options 3, 5, 7) up to 9.8.1.5. Later releases include the fix and may share some patched files (for example, 9.8.2.12's `feedback.py` matches a CVE-2024-41714 patch file while its `views.py` is newer), so a partial match there is shown as not required.
 - **Yellow:** not required for this version.
 
 Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-0007).

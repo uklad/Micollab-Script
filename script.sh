@@ -463,9 +463,31 @@ check_rpm() {  # $1 = option
   return 1
 }
 
+# Highest MiCollab version each option's vulnerability affects (from Mitel's
+# notes). Later releases already include the fix and can share some of the
+# patched files (e.g. 9.8.2.12's feedback.py matches a CVE-2024-41714 patch
+# file but its views.py is newer), so a partial match there is "not required",
+# not "incomplete". Only options whose check can report "incomplete" need this.
+declare -A AFFECTED_MAX=(
+  [1]='9.8.2.12'   # CVE-2024-41713: 9.8 SP2 (9.8.2.12) and earlier
+  [2]='9.8.2.12'
+  [3]='9.8.1.5'    # CVE-2024-41714: 9.8 SP1 (9.8.1.5) and earlier
+  [5]='9.8.1.5'
+  [7]='9.8.1.5'
+)
+# True if this server's version is newer than the last affected version
+not_affected() {  # $1 = option
+  [ -n "${AFFECTED_MAX[$1]}" ] && version_lt "${AFFECTED_MAX[$1]}" "$MasVersion"
+}
+
 # Record a check result for the menu
 mark_status() {  # $1 = option, $2 = status, $3 = description
   local short
+  # A partial match on a version the issue doesn't affect is not an
+  # incomplete patch: treat it as not installed (left as yellow, unticked)
+  if [ "$2" = 2 ] && not_affected "$1"; then
+    return 0
+  fi
   case "$2" in
     0)
       if [ -n "$CHECK_WHEN" ]; then
