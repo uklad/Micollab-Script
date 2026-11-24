@@ -265,37 +265,37 @@ print_success "MasVersion Detected as: $MasVersion"
 # Determine the preselected options based on MasVersion
 case "$MasVersion" in
   "9.7.0.27")
-    PRESELECTED="4"
+    PRESELECTED="2"
     ;;
   "9.7.1.13")
-    PRESELECTED="1 4"
+    PRESELECTED="2 3"
     ;;
   "9.7.1.110")
-    PRESELECTED="4"
+    PRESELECTED="2"
     ;;
   "9.8.0.33")
-    PRESELECTED="2 4 5"
+    PRESELECTED="2 5 6"
     ;;
   "9.8.1.5")
-    PRESELECTED="3 4 5"
+    PRESELECTED="2 6 7"
     ;;
   "9.8.1.108")
-    PRESELECTED="4 5"
+    PRESELECTED="2 6"
     ;;    
   "9.8.1.201")
-    PRESELECTED="4 5"
+    PRESELECTED="2 6"
     ;;
   "9.8.2.12")
-    PRESELECTED="4"
+    PRESELECTED="2"
     ;;
   "9.8.3.203")
-    PRESELECTED="7"
-    ;;
-  "10.2.1.205")
     PRESELECTED="8"
     ;;
+  "10.2.1.205")
+    PRESELECTED="10"
+    ;;
   "10.3.0.18")
-    PRESELECTED="9"
+    PRESELECTED="11"
     ;;
   *)
     PRESELECTED=""
@@ -310,19 +310,19 @@ unpreselect() { local p=" $PRESELECTED "; PRESELECTED="${p// $1 / }"; }
 version_lt() { [ "$1" != "$2" ] && [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ]; }
 
 # CVE-2025-52914 (MISA-2025-0008): fixed in 9.8 SP3 FP1 (9.8.3.103) and
-# 10.1 (10.1.0.10); patches exist for 9.8.x.x (option 10) and 10.0.x.x (option 11)
+# 10.1 (10.1.0.10); patches exist for 9.8.x.x (option 4) and 10.0.x.x (option 9)
 case "$MasVersion" in
-  9.8.*)  version_lt "$MasVersion" "9.8.3.103" && PRESELECTED="$PRESELECTED 10" ;;
-  10.0.*) PRESELECTED="$PRESELECTED 11" ;;
+  9.8.*)  version_lt "$MasVersion" "9.8.3.103" && PRESELECTED="$PRESELECTED 4" ;;
+  10.0.*) PRESELECTED="$PRESELECTED 9" ;;
 esac
 
 # RPM-based patches: menu option -> package installed by that option.
 # Keep in sync with the install_rpm calls further down.
 declare -A RPM_PATCH=(
-  [5]='awc-web-9.8.1.103-1.i386'
-  [7]='awc-audio-newupg-9.8.3.202-2.i386'
-  [8]='awc-audio-newupg-10.3.0.7-1.x86_64'
-  [9]='awc-audio-newupg-10.3.0.8-1.x86_64'
+  [6]='awc-web-9.8.1.103-1.i386'
+  [8]='awc-audio-newupg-9.8.3.202-2.i386'
+  [10]='awc-audio-newupg-10.3.0.7-1.x86_64'
+  [11]='awc-audio-newupg-10.3.0.8-1.x86_64'
 )
 
 # Mark RPM patches that are already installed and untick them
@@ -343,7 +343,7 @@ for opt in "${!RPM_PATCH[@]}"; do
   fi
 done
 
-# Check whether the CVE-2024-41713 patch (options 4 and 6) is applied.
+# Check whether the CVE-2024-41713 patch (options 1 and 2) is applied.
 # Its patcher.sh writes "date" then "Patch notes: <note>" to the NPM Revision
 # file (this is what sinfo shows); removing it (patcher.sh -r) writes
 # "Patch notes: REVERSED <note>". The latest entry wins.
@@ -367,29 +367,29 @@ cve_41713_applied() {
 
 if cve_41713_installed_on=$(cve_41713_applied); then
   installed_date=$(date -d "$cve_41713_installed_on" '+%Y-%m-%d' 2>/dev/null)
-  for opt in 4 6; do
+  for opt in 1 2; do
     TAG[$opt]=" [INSTALLED ${installed_date:-date unknown}]"
     unpreselect "$opt"
   done
-  print_info "CVE-2024-41713 patch (options 4 and 6) was applied on ${cve_41713_installed_on:-unknown date}"
+  print_info "CVE-2024-41713 patch (options 1 and 2) was applied on ${cve_41713_installed_on:-unknown date}"
 fi
 
-# CVE-2025-52914 (MISA-2025-0008) ChangeSettingsPortlet patch, options 10/11.
+# CVE-2025-52914 (MISA-2025-0008) ChangeSettingsPortlet patch, options 4/9.
 # The patch replaces ChangeSettingsPortlet.jar (original kept as .jar.old) and
 # restarts tomcat. It counts as applied when the installed jar's MD5 matches
 # the patched jar; the install date is the jar's modification time.
 CS_JAR="ChangeSettingsPortlet.jar"
 declare -A CS_LIB=(
-  [10]='/var/lib/tomcat7/webapps/ChangeSettingsPortlet/WEB-INF/lib'
-  [11]='/var/lib/tomcat9/webapps/ChangeSettingsPortlet/WEB-INF/lib'
+  [4]='/var/lib/tomcat7/webapps/ChangeSettingsPortlet/WEB-INF/lib'
+  [9]='/var/lib/tomcat9/webapps/ChangeSettingsPortlet/WEB-INF/lib'
 )
 declare -A CS_PKG=(
-  [10]='Patch_Micollab-9.8_SP3'
-  [11]='Patch_Micollab-10.0_SP1_FP1'
+  [4]='Patch_Micollab-9.8_SP3'
+  [9]='Patch_Micollab-10.0_SP1_FP1'
 )
 declare -A CS_MD5=(
-  [10]='53953ffab753228139435664ca2e292f'
-  [11]='d0485a06226897c0058ffaea27643355'
+  [4]='53953ffab753228139435664ca2e292f'
+  [9]='d0485a06226897c0058ffaea27643355'
 )
 
 # Prints the install date and returns 0 if option $1's patched jar is in place
@@ -437,7 +437,7 @@ install_cs_patch() {
   TOMCAT_RESTART_NEEDED=1
 }
 
-for opt in 10 11; do
+for opt in 4 9; do
   if cs_installed_on=$(cs_patch_applied "$opt"); then
     TAG[$opt]=" [INSTALLED ${cs_installed_on%% *}]"
     unpreselect "$opt"
@@ -445,19 +445,20 @@ for opt in 10 11; do
   fi
 done
 
-# Menu labels, one per option
+# Menu labels, one per option, in version order (by the first version each
+# option applies to)
 MENU_LABELS=(
-  [1]="9.7 SP1 (9.7.1.13) CVE-2024-41714"
-  [2]="9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287"
-  [3]="9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287"
-  [4]="9.7 to 9.8 SP2 (9.7.0.27 - 9.8.2.12) CVE-2024-41713"
-  [5]="9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **"
-  [6]="6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713"
-  [7]="9.8 SP3FP1 (9.8.3.203) MISA-2026-0006"
-  [8]="10.2 SP1FP2 (10.2.1.205) MISA-2026-0006"
-  [9]="10.3 (10.3.0.18) MISA-2026-0012"
-  [10]="9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914"
-  [11]="10.0 (10.0.x.x) CVE-2025-52914"
+  [1]="6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) CVE-2024-41713"
+  [2]="9.7 to 9.8 SP2 (9.7.0.27 - 9.8.2.12) CVE-2024-41713"
+  [3]="9.7 SP1 (9.7.1.13) CVE-2024-41714"
+  [4]="9.8 (9.8.x.x below 9.8.3.103) CVE-2025-52914"
+  [5]="9.8 GA (9.8.0.33) CVE-2024-41714 & CVE-2024-35287"
+  [6]="9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) CVE-2024-47223 - ** Reboot Required **"
+  [7]="9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287"
+  [8]="9.8 SP3FP1 (9.8.3.203) MISA-2026-0006"
+  [9]="10.0 (10.0.x.x) CVE-2025-52914"
+  [10]="10.2 SP1FP2 (10.2.1.205) MISA-2026-0006"
+  [11]="10.3 (10.3.0.18) MISA-2026-0012"
 )
 
 # Colour each item (dialog --colors: \Zb bold, \Z1 red, \Z2 green, \Z3 yellow,
@@ -528,24 +529,24 @@ fi
 # Process the selected options
 for CHOICE in $CHOICES; do
     case $CHOICE in
-        1)
+        3)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.7%20SP1%20patch.zip'
             rename_and_copy_files
             ;;
-        2)
+        5)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.8%20GA%20patch.zip'
             download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
             rename_and_copy_files
             run_patcher_NPM-4630
             ;;
-        3)
+        7)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.8%20SP1%20patch.zip'
             download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
             rename_and_copy_files
             run_patcher_NPM-4630
             ;;
-        4|6)
-            # Options 4 and 6 apply the same patch; skip it if already applied
+        1|2)
+            # Options 1 and 2 apply the same patch; skip it if already applied
             # (re-running it restarts NuPoint for nothing)
             if cve_41713_applied >/dev/null; then
                 print_info "CVE-2024-41713 patch is already applied (option $CHOICE). Skipping."
@@ -554,27 +555,27 @@ for CHOICE in $CHOICES; do
                 run_patcher_CVE-2024-41713
             fi
             ;;
-        5)
+        6)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
             install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
             ;;
-        7)
+        8)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26.zip'
             install_rpm 'AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26/awc-audio-newupg-9.8.3.202-2.i386.rpm'
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
-        8)
+        10)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26.zip'
             # Mitel's 10.2.1.205 instructions use --oldpackage
             install_rpm 'AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26/awc-audio-newupg-10.3.0.7-1.x86_64.rpm' --oldpackage
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
-        9)
+        11)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0012/AWV-11322_FixPatch_MAS_10.3_HF1.zip'
             install_rpm 'awc-audio-newupg-10.3.0.8-1.x86_64.rpm'
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
-        10|11)
+        4|9)
             install_cs_patch "$CHOICE"
             ;;
 	*)
@@ -586,8 +587,8 @@ done
 # Restart AWV once, after all selected patches are installed
 if [ "$AWV_RESTART_NEEDED" = 1 ]; then
     restart_awv_services || AWV_RESTART_FAILED=1
-elif [[ " $CHOICES " =~ \ (7|8|9)\  ]]; then
-    # An AWV patch (7/8/9) was selected but its RPM was already installed
+elif [[ " $CHOICES " =~ \ (8|10|11)\  ]]; then
+    # An AWV patch (8/10/11) was selected but its RPM was already installed
     print_info "AWV restart skipped: the selected AWV patch was already installed, so nothing changed"
 fi
 
