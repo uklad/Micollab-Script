@@ -296,9 +296,17 @@ declare -A RPM_PATCH=(
 declare -A TAG
 for opt in "${!RPM_PATCH[@]}"; do
   if rpm -q "${RPM_PATCH[$opt]}" >/dev/null 2>&1; then
-    TAG[$opt]=" [ALREADY INSTALLED]"
+    # When it was installed, from the RPM database (epoch seconds)
+    installed_epoch=$(rpm -q --qf '%{INSTALLTIME}' "${RPM_PATCH[$opt]}" 2>/dev/null)
+    installed_date=$(date -d "@$installed_epoch" '+%Y-%m-%d %H:%M' 2>/dev/null)
+    if [ -n "$installed_date" ]; then
+      TAG[$opt]=" [INSTALLED ${installed_date%% *}]"
+      print_info "Option $opt (${RPM_PATCH[$opt]}) was installed on $installed_date"
+    else
+      TAG[$opt]=" [ALREADY INSTALLED]"
+      print_info "Option $opt (${RPM_PATCH[$opt]}) is already installed (install date unknown)"
+    fi
     PRESELECTED="${PRESELECTED//$opt/}"
-    print_info "Option $opt (${RPM_PATCH[$opt]}) is already installed"
   fi
 done
 
