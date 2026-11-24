@@ -164,8 +164,12 @@ run_patcher_CVE-2024-41713() {
 # Accepts either a bare filename (expected in the current dir) or a relative
 # path (e.g. extracted-folder/package.rpm) - rpm -q only wants the package
 # name, but -Uvh needs the actual path to the file.
+# Any further arguments are passed to rpm as extra flags (e.g. --oldpackage
+# where Mitel's instructions include it).
 install_rpm() {
     local rpm_path=$1
+    shift
+    local extra_flags=("$@")
     local rpm_file="${rpm_path##*/}"   # basename, for display/query
     local rpm_name="${rpm_file%.rpm}"
     RPM_INSTALLED=0   # set to 1 only when a package is actually installed
@@ -177,7 +181,7 @@ install_rpm() {
     fi
 
     print_info "Installing RPM package: $rpm_file"
-    if rpm -Uvh --noscripts "$rpm_path"; then
+    if rpm -Uvh --noscripts "${extra_flags[@]}" "$rpm_path"; then
         print_success "RPM installed successfully: $rpm_file"
         RPM_INSTALLED=1
     else
@@ -561,7 +565,8 @@ for CHOICE in $CHOICES; do
             ;;
         8)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26.zip'
-            install_rpm 'AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26/awc-audio-newupg-10.3.0.7-1.x86_64.rpm'
+            # Mitel's 10.2.1.205 instructions use --oldpackage
+            install_rpm 'AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26/awc-audio-newupg-10.3.0.7-1.x86_64.rpm' --oldpackage
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
         9)

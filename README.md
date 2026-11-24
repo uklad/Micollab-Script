@@ -53,7 +53,16 @@ For MiCollab 6.0 - 9.7 and MiVB-X, manually select **option 6** for the correct 
 - Options 1, 2 and 3 (file-based patches) have no such check, so reapplying them is not prevented.
 - The script may pause for a few seconds at points during installation. Options 2, 3, 4 and 6 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
 - The patch for CVE-2024-47223 (option 5) requires a reboot to take effect.
-- Options 7 and 8 (MISA-2026-0006) each download a zip containing two RPM versions; the script installs only the intended version (9.8.3.202 for 9.8 SP3FP1, 10.3.0.7 for 10.2 SP1FP2) and leaves the other file extracted but unused.
+- Options 7 and 8 (MISA-2026-0006) each download a zip containing two RPMs: the patch, and the original version for reverting. The script installs only the patch, as in Mitel's instructions:
+  - Option 7 (9.8.3.203): `rpm -Uvh --noscripts awc-audio-newupg-9.8.3.202-2.i386.rpm`
+  - Option 8 (10.2.1.205): `rpm -Uvh --noscripts --oldpackage awc-audio-newupg-10.3.0.7-1.x86_64.rpm`
+
+  To verify, run `rpm -q awc-audio-newupg`. `9.8.3.202-2` or `10.3.0.7-1` means the patch is installed; `9.8.3.201-1` or `10.2.1.201-1` means it is not. MISA-2026-0006 affects 10.0 (10.0.0.26) to 10.2 SP1 FP2 and 9.8.3.203 and earlier, but patches only exist for 10.2.1.205 and 9.8.3.203: other versions should upgrade to 10.3 (10.3.0.18).
+- **To revert option 7 or 8**, from the extracted folder in `/tmp` (`AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26` or `AWV-11157_FixPatch_MAS_10.2SP1FP2_14July26`) run the matching command, then stop/start the AWV services in Server Manager (reverting is manual and not done by the script):
+  ```
+  rpm -Uvh --noscripts --oldpackage awc-audio-newupg-9.8.3.201-1.i386.rpm
+  rpm -Uvh --noscripts --oldpackage awc-audio-newupg-10.2.1.201-1.x86_64.rpm
+  ```
 - Option 9 (MISA-2026-0012) downloads `AWV-11322_FixPatch_MAS_10.3_HF1.zip` and installs `awc-audio-newupg-10.3.0.8-1.x86_64.rpm`. The GA `awc-audio-newupg-10.3.0.7-1.x86_64.rpm` is also extracted to `/tmp` for rollback.
 - **Options 7, 8 and 9 restart AWV automatically.** Once all selected patches are installed, the script stops and then starts the 11 AWV services using `/sbin/e-smith/service`, the same wrapper the AWV admin page uses. It does this once, even if several AWV options are selected, and only if an RPM was actually installed. **This drops every active audio, web and video conference**, so run it in a maintenance window. On Mitel 5000 / Axxess integrations (detected from `db awcconf get SWITCH_NAME`), `sipcfgmgr` and `sipserver` are restarted too. If any service reports an error, the script says so and exits non-zero; check the services in Server Manager.
 - **To revert option 9** to the 10.3 GA version, run the following from `/tmp`, then stop/start the AWV services in Server Manager (reverting is manual and not done by the script):
