@@ -19,7 +19,7 @@ The MiCollab version is checked automatically via `config getprop sysconfig MasV
 | 9.8.1.5 | 3, 4, 5 |
 | 9.8.1.108 | 4, 5 |
 | 9.8.1.201 | 4, 5 |
-| 9.8.2.12 | none |
+| 9.8.2.12 | 4 |
 | 9.8.3.203 | 7 |
 | 10.2.1.205 | 8 |
 | 10.3.0.18 | 9 |
@@ -34,7 +34,7 @@ For MiCollab 6.0 - 9.7 and MiVB-X, manually select **option 6** for the correct 
 | 1 | 9.7 SP1 (9.7.1.13) - CVE-2024-41714 |
 | 2 | 9.8 GA (9.8.0.33) - CVE-2024-41714 & CVE-2024-35287 |
 | 3 | 9.8 SP1 (9.8.1.5) - CVE-2024-41714 & CVE-2024-35287 |
-| 4 | 9.7 to 9.8 SP1FP2 (9.7.0.27 - 9.8.1.201) - CVE-2024-41713 |
+| 4 | 9.7 to 9.8 SP2 (9.7.0.27 - 9.8.2.12) - CVE-2024-41713 |
 | 5 | 9.8 GA to 9.8 SP1FP2 (9.8.0.33 - 9.8.1.201) - CVE-2024-47223 — **reboot required** |
 | 6 | 6.0 to 9.8 SP1FP2 + MiVB-X (6.0.206.0 - 9.8.1.201) - CVE-2024-41713 |
 | 7 | 9.8 SP3FP1 (9.8.3.203) - MISA-2026-0006 |
