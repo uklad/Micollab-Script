@@ -50,9 +50,27 @@ Options are listed in version order, by the first version each one applies to.
 ## Notes
 - Requires `curl` (used to download the script and the patch files).
 - Requires `dialog` to be installed on the server; the script will exit with an error if it's not found.
-- **RPM-based options (6, 8, 10, 11)** are checked before the menu opens. If the patch's RPM is already installed, the option is shown in green, labelled with its install date from the RPM database (e.g. `[INSTALLED 2026-11-17]`, or `[ALREADY INSTALLED]` if the date can't be read), and is not preselected. Menu colours: green = already installed, red = recommended for this version, yellow = not required. If you tick it anyway, the install is skipped.
-- **Options 1 and 2 (CVE-2024-41713)** are checked the same way, using the NPM Revision file `/usr/vm/config/Revision` (the same record `sinfo` shows). If the latest entry is `Patch notes: CVE-2024-41713 : Path Traversal Combined Fix Patch`, both options are shown green with the date it was applied, and are skipped if ticked. If the patch was later removed with `patcher.sh -r` (a `REVERSED` entry), it counts as not applied. Mitel notes this patch also corrects CVE-2025-52913 (MISA-2025-0007).
-- Options 3, 5 and 7 (file-based patches) have no such check, so reapplying them is not prevented.
+## Installed checks
+
+Before the menu opens, every option is checked against what its patch actually changes on the server. The same check runs again just before an option is installed (so a patch applied by an earlier choice isn't applied twice), and once more afterwards to **verify** it. If verification fails, the script lists the missing parts and exits with an error.
+
+| Option(s) | Patch | Counts as installed when |
+|---|---|---|
+| 1, 2 | CVE-2024-41713 | **All three** are present: the latest `/usr/vm/config/Revision` entry (what `sinfo` shows) is `CVE-2024-41713 : Path Traversal Combined Fix Patch` and not `REVERSED`; the `26npm-ivr-rewrite` template holds both `[R=404]` rules for `/npm-admin` and `/npm-pwg`; and the live `/etc/httpd/conf/httpd.conf` holds both rules |
+| 3, 5, 7 | CVE-2024-41714 | The installed `views.py` and `feedback.py` match the patched files by MD5. `feedback.py` differs per version, so it decides which of the three options is installed |
+| 5, 7 | + CVE-2024-35287 (NPM-4630) | The latest Revision entry is `NPM-4630 - Server Console escape to bash as root.` and `/usr/vm/bin/startnpm` matches the patched file by MD5 |
+| 6, 8, 10, 11 | RPMs | The exact package version is installed, **or a newer version** of the same package is (shown as `[NEWER x INSTALLED]`; the option is skipped so the package is never downgraded) |
+| 4, 9 | CVE-2025-52914 | The live `ChangeSettingsPortlet.jar` matches the patched jar by MD5 |
+
+Menu colours:
+- **Green:** installed, with the date (e.g. `[INSTALLED 2026-11-17]`), or superseded by a newer version. Not ticked, and skipped if you tick it.
+- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 5 and 7 then install only the missing part.
+- **Yellow:** not required for this version.
+
+Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-0007).
+
+## More notes
+- The CVE-2024-41714 options keep the original files as `views_old.py` and `feedback_old.py`. An existing backup is never overwritten, so the original survives a re-run.
 - The script may pause for a few seconds at points during installation. Options 1, 2, 5 and 7 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
 - The patch for CVE-2024-47223 (option 6) requires a reboot to take effect.
 - Options 8 and 10 (MISA-2026-0006) each download a zip containing two RPMs: the patch, and the original version for reverting. The script installs only the patch, as in Mitel's instructions:

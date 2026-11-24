@@ -95,10 +95,19 @@ download_patch() {
 }
 
 # Function to rename and copy files
+# The originals are kept as views_old.py / feedback_old.py. An existing backup
+# is never overwritten, so re-running can't replace the original with a
+# patched copy.
 rename_and_copy_files() {
-    print_info "Renaming existing views.py and feedback.py"
-    mv -f /etc/e-smith/web/django/servermanager/ucdiag/tdc/views.py /etc/e-smith/web/django/servermanager/ucdiag/tdc/views_old.py || { print_error "Failed to rename views.py"; exit 1; }
-    mv -f /usr/ucs/feedback/feedback.py /usr/ucs/feedback/feedback_old.py || { print_error "Failed to rename feedback.py"; exit 1; }
+    local f
+    for f in /etc/e-smith/web/django/servermanager/ucdiag/tdc/views.py /usr/ucs/feedback/feedback.py; do
+        if [ -e "${f%.py}_old.py" ]; then
+            print_info "Keeping existing backup ${f%.py}_old.py"
+        else
+            print_info "Renaming ${f##*/} to ${f##*/}_old.py"
+            mv -f "$f" "${f%.py}_old.py" || { print_error "Failed to rename ${f##*/}"; exit 1; }
+        fi
+    done
 
     print_info "Copying new views.py and feedback.py"
     cp -f /tmp/views.py /etc/e-smith/web/django/servermanager/ucdiag/tdc/ || { print_error "Failed to copy views.py"; exit 1; }
@@ -316,63 +325,182 @@ case "$MasVersion" in
   10.0.*) PRESELECTED="$PRESELECTED 9" ;;
 esac
 
-# RPM-based patches: menu option -> package installed by that option.
-# Keep in sync with the install_rpm calls further down.
-declare -A RPM_PATCH=(
-  [6]='awc-web-9.8.1.103-1.i386'
-  [8]='awc-audio-newupg-9.8.3.202-2.i386'
-  [10]='awc-audio-newupg-10.3.0.7-1.x86_64'
-  [11]='awc-audio-newupg-10.3.0.8-1.x86_64'
-)
+# ---------------------------------------------------------------------------
+# Installed-patch checks
+#
+# Each check looks at what the patch actually changes on the server (files,
+# config, packages), not just whether it was run once. Every check_* function
+# returns:
+#   0 = installed       (CHECK_WHEN = when, if known)
+#   1 = not installed
+#   2 = incomplete      (CHECK_MISSING = which parts are missing)
+#   3 = superseded      (RPMs only: a newer version is installed, CHECK_NEWER)
+# ---------------------------------------------------------------------------
+declare -A TAG PARTIAL
+CHECK_WHEN=""; CHECK_MISSING=""; CHECK_NEWER=""
 
-# Mark RPM patches that are already installed and untick them
-declare -A TAG
-for opt in "${!RPM_PATCH[@]}"; do
-  if rpm -q "${RPM_PATCH[$opt]}" >/dev/null 2>&1; then
-    # When it was installed, from the RPM database (epoch seconds)
-    installed_epoch=$(rpm -q --qf '%{INSTALLTIME}' "${RPM_PATCH[$opt]}" 2>/dev/null)
-    installed_date=$(date -d "@$installed_epoch" '+%Y-%m-%d %H:%M' 2>/dev/null)
-    if [ -n "$installed_date" ]; then
-      TAG[$opt]=" [INSTALLED ${installed_date%% *}]"
-      print_info "Option $opt (${RPM_PATCH[$opt]}) was installed on $installed_date"
-    else
-      TAG[$opt]=" [ALREADY INSTALLED]"
-      print_info "Option $opt (${RPM_PATCH[$opt]}) is already installed (install date unknown)"
-    fi
-    unpreselect "$opt"
-  fi
-done
+md5_of() { [ -f "$1" ] && md5sum < "$1" | awk '{print $1}'; }
+file_date() { date -r "$1" '+%Y-%m-%d %H:%M' 2>/dev/null; }
 
-# Check whether the CVE-2024-41713 patch (options 1 and 2) is applied.
-# Its patcher.sh writes "date" then "Patch notes: <note>" to the NPM Revision
-# file (this is what sinfo shows); removing it (patcher.sh -r) writes
-# "Patch notes: REVERSED <note>". The latest entry wins.
-# Prints the install date and returns 0 if applied, otherwise returns 1.
-CVE_41713_NOTE="CVE-2024-41713 : Path Traversal Combined Fix Patch"
-CVE_41713_REV_FILE="/usr/vm/config/Revision"
-cve_41713_applied() {
-  [ -r "$CVE_41713_REV_FILE" ] || return 1
-  local result reversed when
-  result=$(awk -v note="$CVE_41713_NOTE" '
+# Latest entry for a patch note in the NPM Revision file (what sinfo shows).
+# Mitel patcher.sh scripts write "date" then "Patch notes: <note>"; removing a
+# patch (patcher.sh -r) writes "Patch notes: REVERSED <note>".
+# Prints the date and returns 0 if the latest entry is an install.
+NPM_REV_FILE="/usr/vm/config/Revision"
+revision_note_date() {
+  [ -r "$NPM_REV_FILE" ] || return 1
+  local result
+  result=$(awk -v note="$1" '
     /^Patch notes: / && index($0, note) { when = prev; rev = ($0 ~ /REVERSED/) ? 1 : 0; found = 1 }
     { prev = $0 }
-    END { if (found) print rev "|" when }' "$CVE_41713_REV_FILE")
-  [ -n "$result" ] || return 1
-  reversed="${result%%|*}"
-  when="${result#*|}"
-  [ "$reversed" = 0 ] || return 1
-  echo "$when"
-  return 0
+    END { if (found) print rev "|" when }' "$NPM_REV_FILE")
+  [ -n "$result" ] && [ "${result%%|*}" = 0 ] || return 1
+  echo "${result#*|}"
 }
 
-if cve_41713_installed_on=$(cve_41713_applied); then
-  installed_date=$(date -d "$cve_41713_installed_on" '+%Y-%m-%d' 2>/dev/null)
-  for opt in 1 2; do
-    TAG[$opt]=" [INSTALLED ${installed_date:-date unknown}]"
-    unpreselect "$opt"
+# Turn a list of present/missing parts into a status code
+#   $1 = number of parts present, $2 = total parts
+parts_status() {
+  [ "$1" -eq "$2" ] && return 0
+  [ "$1" -eq 0 ] && return 1
+  return 2
+}
+
+# --- Options 1 and 2: CVE-2024-41713 (security_CVE-2024-41713_MiCollab.tar.gz)
+# patcher.sh writes the Revision note, copies the 26npm-ivr-rewrite template
+# and regenerates httpd.conf, which then holds two [R=404] rules. All three
+# must be in place: the live httpd.conf rules are the actual protection.
+CVE_41713_NOTE="CVE-2024-41713 : Path Traversal Combined Fix Patch"
+CVE_41713_TEMPLATE="/etc/e-smith/templates/etc/httpd/conf/httpd.conf/VirtualHosts/26npm-ivr-rewrite"
+HTTPD_CONF="/etc/httpd/conf/httpd.conf"
+CVE_41713_RULES=('RewriteRule ^/npm-admin/(.*)..; - [R=404]' 'RewriteRule ^/npm-pwg/(.*)..; - [R=404]')
+has_all_rules() {  # $1 = file
+  local rule
+  [ -r "$1" ] || return 1
+  for rule in "${CVE_41713_RULES[@]}"; do
+    grep -qF -- "$rule" "$1" || return 1
   done
-  print_info "CVE-2024-41713 patch (options 1 and 2) was applied on ${cve_41713_installed_on:-unknown date}"
-fi
+}
+check_cve_41713() {
+  local have=0
+  CHECK_WHEN=""; CHECK_MISSING=""
+  if CHECK_WHEN=$(revision_note_date "$CVE_41713_NOTE"); then have=$((have+1)); else CHECK_MISSING+="Revision note, "; fi
+  if has_all_rules "$CVE_41713_TEMPLATE"; then have=$((have+1)); else CHECK_MISSING+="26npm-ivr-rewrite template, "; fi
+  if has_all_rules "$HTTPD_CONF"; then have=$((have+1)); else CHECK_MISSING+="httpd.conf rules, "; fi
+  CHECK_MISSING="${CHECK_MISSING%, }"
+  parts_status "$have" 3
+}
+
+# --- Options 3, 5, 7: CVE-2024-41714 (views.py + feedback.py)
+# views.py is the same in all three patches; feedback.py differs per version,
+# so it decides which option is installed.
+TDC_VIEWS="/etc/e-smith/web/django/servermanager/ucdiag/tdc/views.py"
+UCS_FEEDBACK="/usr/ucs/feedback/feedback.py"
+VIEWS_MD5="1c4aebbfbf3704b0dc49d95d28afae6e"
+declare -A FEEDBACK_MD5=(
+  [3]='298f126f3d171b1d20eec5b146745860'   # 9.7 SP1 patch.zip
+  [5]='2e80d075e3790f62efefcb033805d02d'   # 9.8 GA patch.zip
+  [7]='e1fa45988c65331f5d022daaabdf6794'   # 9.8 SP1 patch.zip
+)
+check_cve_41714() {  # $1 = option
+  CHECK_WHEN=""; CHECK_MISSING=""
+  # This option's feedback.py isn't there: not installed (another version's
+  # patch may be, which is not "incomplete" for this option)
+  [ "$(md5_of "$UCS_FEEDBACK")" = "${FEEDBACK_MD5[$1]}" ] || return 1
+  CHECK_WHEN=$(file_date "$UCS_FEEDBACK")
+  [ "$(md5_of "$TDC_VIEWS")" = "$VIEWS_MD5" ] && return 0
+  CHECK_MISSING="patched views.py"
+  return 2
+}
+
+# --- Options 5 and 7 also apply CVE-2024-35287 (NPM-4630_Fix_Patch_20.8.tar.gz)
+# patcher.sh writes the Revision note and replaces /usr/vm/bin/startnpm.
+NPM_4630_NOTE="NPM-4630 - Server Console escape to bash as root."
+NPM_STARTNPM="/usr/vm/bin/startnpm"
+STARTNPM_MD5="5d5b07cda203b607f31e1d13ccb78476"
+check_npm_4630() {
+  local have=0
+  CHECK_WHEN=""; CHECK_MISSING=""
+  if CHECK_WHEN=$(revision_note_date "$NPM_4630_NOTE"); then have=$((have+1)); else CHECK_MISSING+="NPM-4630 Revision note, "; fi
+  if [ "$(md5_of "$NPM_STARTNPM")" = "$STARTNPM_MD5" ]; then have=$((have+1)); else CHECK_MISSING+="patched startnpm, "; fi
+  CHECK_MISSING="${CHECK_MISSING%, }"
+  parts_status "$have" 2
+}
+
+# Options 5 and 7 = CVE-2024-41714 + CVE-2024-35287
+check_41714_and_4630() {  # $1 = option
+  local s1 s2 when1 missing1
+  check_cve_41714 "$1"; s1=$?; when1="$CHECK_WHEN"; missing1="$CHECK_MISSING"
+  # This option's CVE-2024-41714 files aren't there at all: not installed,
+  # even if NPM-4630 is (it is shared with the other 9.8 option)
+  [ "$s1" -eq 1 ] && return 1
+  check_npm_4630; s2=$?
+  if [ "$s1" -eq 0 ] && [ "$s2" -eq 0 ]; then CHECK_WHEN="$when1"; return 0; fi
+  CHECK_MISSING="${missing1:+$missing1, }$CHECK_MISSING"
+  CHECK_MISSING="${CHECK_MISSING%, }"
+  CHECK_WHEN="$when1"
+  return 2
+}
+
+# --- RPM options 6, 8, 10, 11: package name and the version-release the patch
+# installs. Keep in sync with the install_rpm_option calls further down.
+declare -A RPM_NAME=( [6]='awc-web' [8]='awc-audio-newupg' [10]='awc-audio-newupg' [11]='awc-audio-newupg' )
+declare -A RPM_VR=(   [6]='9.8.1.103-1' [8]='9.8.3.202-2' [10]='10.3.0.7-1' [11]='10.3.0.8-1' )
+check_rpm() {  # $1 = option
+  local installed epoch
+  CHECK_WHEN=""; CHECK_MISSING=""; CHECK_NEWER=""
+  installed=$(rpm -q --qf '%{VERSION}-%{RELEASE}\n' "${RPM_NAME[$1]}" 2>/dev/null) || return 1
+  installed=$(printf '%s\n' "$installed" | sort -V | tail -n1)
+  if [ "$installed" = "${RPM_VR[$1]}" ]; then
+    epoch=$(rpm -q --qf '%{INSTALLTIME}\n' "${RPM_NAME[$1]}-${RPM_VR[$1]}" 2>/dev/null | head -n1)
+    CHECK_WHEN=$(date -d "@$epoch" '+%Y-%m-%d %H:%M' 2>/dev/null)
+    return 0
+  fi
+  if version_lt "${RPM_VR[$1]}" "$installed"; then
+    CHECK_NEWER="$installed"
+    return 3
+  fi
+  return 1
+}
+
+# Record a check result for the menu
+mark_status() {  # $1 = option, $2 = status, $3 = description
+  local short
+  case "$2" in
+    0)
+      if [ -n "$CHECK_WHEN" ]; then
+        # Dates come as "2026-11-17 11:42" or, from the Revision file, as
+        # "Fri Dec 13 09:15:22 GMT 2024": show both as YYYY-MM-DD
+        short=$(date -d "$CHECK_WHEN" '+%Y-%m-%d' 2>/dev/null) || short="${CHECK_WHEN%% *}"
+        TAG[$1]=" [INSTALLED $short]"
+        print_info "Option $1 ($3) was installed on $CHECK_WHEN"
+      else
+        TAG[$1]=" [ALREADY INSTALLED]"
+        print_info "Option $1 ($3) is installed (install date unknown)"
+      fi
+      unpreselect "$1"
+      ;;
+    3)
+      TAG[$1]=" [NEWER ${CHECK_NEWER} INSTALLED]"
+      print_info "Option $1 ($3): a newer version (${CHECK_NEWER}) is installed"
+      unpreselect "$1"
+      ;;
+    2)
+      TAG[$1]=" [INCOMPLETE - missing: $CHECK_MISSING]"
+      PARTIAL[$1]=1
+      is_preselected "$1" || PRESELECTED="$PRESELECTED $1"
+      print_error "Option $1 ($3) is only partly installed - missing: $CHECK_MISSING"
+      ;;
+  esac
+}
+
+check_cve_41713;               s=$?; mark_status 1 "$s" "CVE-2024-41713"; mark_status 2 "$s" "CVE-2024-41713"
+check_cve_41714 3;             mark_status 3 $? "CVE-2024-41714"
+check_41714_and_4630 5;        mark_status 5 $? "CVE-2024-41714 & CVE-2024-35287"
+check_41714_and_4630 7;        mark_status 7 $? "CVE-2024-41714 & CVE-2024-35287"
+for opt in 6 8 10 11; do
+  check_rpm "$opt";            mark_status "$opt" $? "${RPM_NAME[$opt]}-${RPM_VR[$opt]}"
+done
 
 # CVE-2025-52914 (MISA-2025-0008) ChangeSettingsPortlet patch, options 4/9.
 # The patch replaces ChangeSettingsPortlet.jar (original kept as .jar.old) and
@@ -437,12 +565,13 @@ install_cs_patch() {
   TOMCAT_RESTART_NEEDED=1
 }
 
+# --- Options 4 and 9: installed when the live jar's MD5 matches the patched jar
+check_cs() {  # $1 = option
+  CHECK_MISSING=""
+  CHECK_WHEN=$(cs_patch_applied "$1")
+}
 for opt in 4 9; do
-  if cs_installed_on=$(cs_patch_applied "$opt"); then
-    TAG[$opt]=" [INSTALLED ${cs_installed_on%% *}]"
-    unpreselect "$opt"
-    print_info "CVE-2025-52914 patch (option $opt) was applied on $cs_installed_on"
-  fi
+  check_cs "$opt"; mark_status "$opt" $? "CVE-2025-52914"
 done
 
 # Menu labels, one per option, in version order (by the first version each
@@ -463,12 +592,14 @@ MENU_LABELS=(
 
 # Colour each item (dialog --colors: \Zb bold, \Z1 red, \Z2 green, \Z3 yellow,
 # \Zn reset). Bold gives the bright variant, which reads well on black:
-#   green  = already installed
-#   red    = recommended for this version (preselected)
+#   green  = already installed (or superseded by a newer version)
+#   red    = recommended for this version, or only partly installed (ticked)
 #   yellow = not required for this version
 MENU_ITEMS=()
 for opt in 1 2 3 4 5 6 7 8 9 10 11; do
-  if [ -n "${TAG[$opt]}" ]; then
+  if [ -n "${PARTIAL[$opt]}" ]; then
+    colour='\Zb\Z1'; state=on
+  elif [ -n "${TAG[$opt]}" ]; then
     colour='\Zb\Z2'; state=off
   elif is_preselected "$opt"; then
     colour='\Zb\Z1'; state=on
@@ -514,7 +645,7 @@ EOF
 
 # Display the dialog with preselected options
 CHOICES=$(DIALOGRC="$DIALOG_THEME" dialog --colors --backtitle "Patch Selector" --title "Select an Option" --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 23 150 11 \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended or incomplete (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 23 150 11 \
     "${MENU_ITEMS[@]}" \
     3>&1 1>&2 2>&3 3>&-)
 rm -f "$DIALOG_THEME"
@@ -527,33 +658,64 @@ if [ -z "$CHOICES" ]; then
 fi
 
 # Process the selected options
+# Run the installed check for an option (sets CHECK_* and returns its status)
+run_check() {
+    case "$1" in
+        1|2)       check_cve_41713 ;;
+        3)         check_cve_41714 3 ;;
+        5|7)       check_41714_and_4630 "$1" ;;
+        6|8|10|11) check_rpm "$1" ;;
+        4|9)       check_cs "$1" ;;
+        *)         return 1 ;;
+    esac
+}
+
+# After installing, run the same check again to confirm the patch is in place
+verify_option() {
+    run_check "$1"
+    case $? in
+        0|3) print_success "Verified: option $1 is installed${CHECK_WHEN:+ ($CHECK_WHEN)}" ;;
+        *)   print_error "Verification FAILED for option $1 - ${CHECK_MISSING:-patch not detected}"
+             VERIFY_FAILED="$VERIFY_FAILED $1" ;;
+    esac
+}
+
+declare -A CVE_41714_ZIP=( [3]='9.7%20SP1%20patch.zip' [5]='9.8%20GA%20patch.zip' [7]='9.8%20SP1%20patch.zip' )
+
 for CHOICE in $CHOICES; do
+    RPM_INSTALLED=0
+
+    # Check again right before installing (an earlier choice may have applied
+    # the same patch, e.g. options 1 and 2)
+    run_check "$CHOICE"
+    case $? in
+        0) print_info "Option $CHOICE is already installed. Skipping."; continue ;;
+        3) print_info "Option $CHOICE: a newer version (${CHECK_NEWER}) is already installed. Skipping, so it isn't downgraded."; continue ;;
+    esac
+
     case $CHOICE in
         3)
-            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.7%20SP1%20patch.zip'
+            download_and_extract "https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/${CVE_41714_ZIP[3]}"
             rename_and_copy_files
             ;;
-        5)
-            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.8%20GA%20patch.zip'
-            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
-            rename_and_copy_files
-            run_patcher_NPM-4630
-            ;;
-        7)
-            download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/9.8%20SP1%20patch.zip'
-            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
-            rename_and_copy_files
-            run_patcher_NPM-4630
+        5|7)
+            # Install only the part(s) that are missing
+            if check_cve_41714 "$CHOICE"; then
+                print_info "CVE-2024-41714 files already in place (option $CHOICE)"
+            else
+                download_and_extract "https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41714/${CVE_41714_ZIP[$CHOICE]}"
+                rename_and_copy_files
+            fi
+            if check_npm_4630; then
+                print_info "CVE-2024-35287 (NPM-4630) already in place (option $CHOICE)"
+            else
+                download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-35287/NPM-4630_Fix_Patch_20.8.tar.gz'
+                run_patcher_NPM-4630
+            fi
             ;;
         1|2)
-            # Options 1 and 2 apply the same patch; skip it if already applied
-            # (re-running it restarts NuPoint for nothing)
-            if cve_41713_applied >/dev/null; then
-                print_info "CVE-2024-41713 patch is already applied (option $CHOICE). Skipping."
-            else
-                download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
-                run_patcher_CVE-2024-41713
-            fi
+            download_patch 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-41713/security_CVE-2024-41713_MiCollab.tar.gz'
+            run_patcher_CVE-2024-41713
             ;;
         6)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
@@ -576,12 +738,15 @@ for CHOICE in $CHOICES; do
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
         4|9)
-            install_cs_patch "$CHOICE"
+            install_cs_patch "$CHOICE" || continue
             ;;
 	*)
             print_error "Invalid choice. Skipping."
+            continue
             ;;
     esac
+
+    verify_option "$CHOICE"
 done
 
 # Restart AWV once, after all selected patches are installed
@@ -604,8 +769,13 @@ if [ "$TOMCAT_RESTART_NEEDED" = 1 ]; then
     fi
 fi
 
+if [ -n "$VERIFY_FAILED" ]; then
+    print_error "These options could not be verified as installed:$VERIFY_FAILED (see errors above)"
+fi
 if [ "$AWV_RESTART_FAILED" = 1 ]; then
     print_error "Patches installed, but a service restart needs checking (see errors above)"
+fi
+if [ -n "$VERIFY_FAILED" ] || [ "$AWV_RESTART_FAILED" = 1 ]; then
     exit 1
 fi
 
