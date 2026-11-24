@@ -37,6 +37,12 @@ curl -fsSL https://github.com/uklad/Micollab-Script/raw/main/script.sh | bash
 ```
 The MiCollab version is checked automatically via `config getprop sysconfig MasVersion`, and the appropriate patch(es) are pre-selected in the checklist. You can still tick/untick options manually before confirming.
 
+GitHub caches the raw file for up to 5 minutes, so straight after a change you may get the previous version. To make sure you get the latest, add a timestamp to the URL. This skips the cache:
+```
+curl -fsSL "https://raw.githubusercontent.com/uklad/Micollab-Script/main/script.sh?$(date +%s)" | bash
+```
+The first line the script prints (and the menu title) shows which version you got, e.g. `MiCollab Patch Installer v2.3.0`.
+
 ## Preselection by version
 
 | MiCollab Version | Preselected Option(s) |
