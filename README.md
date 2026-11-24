@@ -1,5 +1,5 @@
 # Micollab Patch Installer
-A bash script (v2.2.4) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+A bash script (v2.3.0) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287 (MISA-2024-0023), CVE-2024-41713 (MISA-2024-0029), CVE-2024-41714 (MISA-2024-0021), CVE-2024-47223 (MISA-2024-0028), CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
 
 ## What it does
 1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
@@ -20,6 +20,15 @@ A bash script (v2.2.4) that checks which Mitel security patches a MiCollab serve
 - **It doesn't apply the MBG or Server Manager mitigations** in Mitel's advisories, such as disabling the AWV proxy rule.
 - **It doesn't answer Mitel's own prompts for you.** Options 1, 4 and 6 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
 - **It doesn't make a backup.** Take an MSL backup before running it, as Mitel advises.
+
+## MISA-2026-0005 upgrade warning
+All MiCollab systems prior to **9.8.3.203** (9.x and earlier) or **10.2.1.205** (10.x) must be **upgraded** to address MISA-2026-0005; no patch in this script fixes it. On those versions the script:
+- flashes a red warning when it starts,
+- repeats the warning in the menu text,
+- adds an `MISA-2026-0005: UPGRADE REQUIRED` line to the status report,
+- flashes the warning again after the report.
+
+The flashing redraws the text, so it works even where the terminal's own blinking is turned off (as in PuTTY by default).
 
 ## Installation
 Script will check the current MiCollab version and preselect the recommended patch(es).
@@ -98,7 +107,8 @@ PATCH STATUS REPORT
 Hostname:          mcollab01
 MiCollab version:  9.8.1.5
 Report date:       2026-11-24 11:56
-Installer version: 2.2.4
+Installer version: 2.3.0
+MISA-2026-0005:    UPGRADE REQUIRED (all systems prior to 9.8.3.203 or 10.2.1.205)
 
 Option | Patch                                                                                               | Status        | Installed on     | This run     | Notes
 -------+-----------------------------------------------------------------------------------------------------+---------------+------------------+--------------+------------------------

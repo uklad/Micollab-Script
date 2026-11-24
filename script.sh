@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MiCollab Patch Installer - bump this when the script changes
-SCRIPT_VERSION="2.2.4"
+SCRIPT_VERSION="2.3.0"
 
 # Function to print colorful messages
 print_info() {
@@ -331,6 +331,41 @@ esac
 # What Mitel recommends for this version, before the checks change PRESELECTED
 # (used by the status report at the end)
 RECOMMENDED="$PRESELECTED"
+
+# MISA-2026-0005: no patch, an upgrade is needed. Every MiCollab release
+# before 9.8.3.203 (9.x and earlier) or 10.2.1.205 (10.x) must be upgraded.
+UPGRADE_WARNING=0
+case "$MasVersion" in
+  [0-9].*)    version_lt "$MasVersion" "9.8.3.203"  && UPGRADE_WARNING=1 ;;
+  1[0-9].*)   version_lt "$MasVersion" "10.2.1.205" && UPGRADE_WARNING=1 ;;
+esac
+
+# Print the MISA-2026-0005 warning. $1 = "flash" to flash it a few times first
+# (done by redrawing, so it flashes even where the terminal's blink is off).
+# It is left on screen in bold red with the blink attribute.
+show_upgrade_warning() {
+  local lines=(
+    "  WARNING - MISA-2026-0005"
+    "  MiCollab $MasVersion must be UPGRADED to address MISA-2026-0005."
+    "  All MiCollab systems prior to 9.8.3.203 or 10.2.1.205 must be upgraded."
+    "  The patches in this script do not fix MISA-2026-0005."
+  )
+  local n=${#lines[@]} i l
+  echo
+  if [ "$1" = flash ] && [ -t 1 ]; then
+    for i in 1 2 3 4 5 6; do
+      for l in "${lines[@]}"; do printf '\e[1;97;41m%-78s\e[0m\n' "$l"; done   # white on red
+      sleep 0.4
+      printf '\e[%dA' "$n"
+      for l in "${lines[@]}"; do printf '\e[1;31;40m%-78s\e[0m\n' "$l"; done   # red on black
+      sleep 0.3
+      printf '\e[%dA' "$n"
+    done
+  fi
+  for l in "${lines[@]}"; do printf '\e[1;5;97;41m%-78s\e[0m\n' "$l"; done
+  echo
+}
+[ "$UPGRADE_WARNING" = 1 ] && show_upgrade_warning flash
 
 # ---------------------------------------------------------------------------
 # Installed-patch checks
@@ -680,8 +715,10 @@ darrow_color = (CYAN,BLACK,ON)
 EOF
 
 # Display the dialog with preselected options
+MENU_WARNING=""
+[ "$UPGRADE_WARNING" = 1 ] && MENU_WARNING="\n\Zb\Zr\Z1 WARNING: MiCollab $MasVersion must be UPGRADED to address MISA-2026-0005 (all systems prior to 9.8.3.203 or 10.2.1.205) \Zn"
 CHOICES=$(DIALOGRC="$DIALOG_THEME" dialog --colors --backtitle "MiCollab Patch Installer v$SCRIPT_VERSION" --title " Patch Selector v$SCRIPT_VERSION - MiCollab $MasVersion " --checklist \
-"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended or incomplete (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 22 150 10 \
+"Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended or incomplete (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version$MENU_WARNING" 23 150 10 \
     "${MENU_ITEMS[@]}" \
     3>&1 1>&2 2>&3 3>&-)
 rm -f "$DIALOG_THEME"
@@ -783,6 +820,11 @@ print_report() {
     echo "MiCollab version:  $MasVersion"
     echo "Report date:       $today"
     echo "Installer version: $SCRIPT_VERSION"
+    if [ "$UPGRADE_WARNING" = 1 ]; then
+        echo "MISA-2026-0005:    UPGRADE REQUIRED (all systems prior to 9.8.3.203 or 10.2.1.205)"
+    else
+        echo "MISA-2026-0005:    No upgrade required"
+    fi
     echo
     for row in "${rows[@]}"; do
         IFS=$'\t' read -r -a cols <<< "$row"
@@ -806,6 +848,8 @@ print_report() {
             echo "$sep"
         fi
     done
+    # MISA-2026-0005 needs an upgrade, not a patch
+    if [ "$UPGRADE_WARNING" = 1 ]; then show_upgrade_warning flash; fi
 }
 
 declare -A CVE_41714_ZIP=( [2]='9.7%20SP1%20patch.zip' [4]='9.8%20GA%20patch.zip' [6]='9.8%20SP1%20patch.zip' )
