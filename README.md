@@ -72,7 +72,14 @@ Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-000
 ## More notes
 - The CVE-2024-41714 options keep the original files as `views_old.py` and `feedback_old.py`. An existing backup is never overwritten, so the original survives a re-run.
 - The script may pause for a few seconds at points during installation. Options 1, 2, 5 and 7 run a Mitel `patcher.sh` that asks whether to run maintenance from Hard Disk: answer **N**.
-- The patch for CVE-2024-47223 (option 6) requires a reboot to take effect.
+- **Option 6 (CVE-2024-47223 / MISA-2024-0028)** installs `awc-web-9.8.1.103-1.i386.rpm` with `rpm -Uvh --noscripts`, as in Mitel's instructions. The same RPM is used for every 9.8 system from GA to SP1FP2. It **requires a reboot** to take effect; the script reminds you at the end but does not reboot, since Mitel says to reboot when convenient. `patch.zip` also contains the revert RPMs, which are extracted to `/tmp` but not installed. The issue is fixed without a patch in 9.8.2.12 and later.
+- **To revert option 6**, from `/tmp` run the command for your version, then reboot (reverting is manual and not done by the script):
+  ```
+  # 9.8 SP1FP2
+  rpm -Uvh --noscripts --oldpackage awc-web-9.8.1.102-1.i386.rpm
+  # 9.8 SP1 and 9.8 GA
+  rpm -Uvh --noscripts --oldpackage awc-web-9.8.0.8-1.i386.rpm
+  ```
 - Options 8 and 10 (MISA-2026-0006) each download a zip containing two RPMs: the patch, and the original version for reverting. The script installs only the patch, as in Mitel's instructions:
   - Option 8 (9.8.3.203): `rpm -Uvh --noscripts awc-audio-newupg-9.8.3.202-2.i386.rpm`
   - Option 10 (10.2.1.205): `rpm -Uvh --noscripts --oldpackage awc-audio-newupg-10.3.0.7-1.x86_64.rpm`

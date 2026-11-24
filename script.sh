@@ -718,8 +718,12 @@ for CHOICE in $CHOICES; do
             run_patcher_CVE-2024-41713
             ;;
         6)
+            # Mitel: the same awc-web-9.8.1.103 RPM patches all 9.8 GA - SP1FP2
+            # systems. patch.zip also holds the revert RPMs (9.8.1.102 for
+            # SP1FP2, 9.8.0.8 for GA/SP1), which are left in /tmp unused.
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/CVE-2024-47223/patch.zip'
             install_rpm 'awc-web-9.8.1.103-1.i386.rpm'
+            [ "$RPM_INSTALLED" = 1 ] && REBOOT_NEEDED=1
             ;;
         8)
             download_and_extract 'https://github.com/uklad/Micollab-Script/raw/refs/heads/main/MISA-2026-0006/AWV-11157_FixPatch_MAS_9.8SP3FP1_10July26.zip'
@@ -767,6 +771,11 @@ if [ "$TOMCAT_RESTART_NEEDED" = 1 ]; then
         print_error "tomcat restart failed - run: service tomcat restart"
         AWV_RESTART_FAILED=1
     fi
+fi
+
+if [ "$REBOOT_NEEDED" = 1 ]; then
+    # Not done automatically: Mitel says to reboot when convenient to the customer
+    print_info "CVE-2024-47223 (option 6) needs a reboot to take effect. Reboot the MiCollab server when convenient."
 fi
 
 if [ -n "$VERIFY_FAILED" ]; then
