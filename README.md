@@ -1,5 +1,5 @@
 # Micollab Patch Installer
-A bash script (v2.2.0) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+A bash script (v2.2.1) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
 
 ## What it does
 1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
@@ -91,7 +91,7 @@ Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-000
 
 ## Status report
 
-When the script finishes, it prints a CSV report between two `=====` lines. It also prints one if the script stops early with an error. Each option is checked again for the report, so it shows the server's state at the end of the run.
+When the script finishes, it prints a CSV report between two `=====` lines. It also prints one if the script stops early with an error, and if you tick nothing (or press Cancel). That way you can run the script just to report on a server: nothing is installed and it exits normally. Each option is checked again for the report, so it shows the server's state at the end of the run.
 
 ```
 ==================== PATCH STATUS REPORT (CSV) ====================

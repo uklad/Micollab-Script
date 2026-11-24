@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MiCollab Patch Installer - bump this when the script changes
-SCRIPT_VERSION="2.2.0"
+SCRIPT_VERSION="2.2.1"
 
 # Function to print colorful messages
 print_info() {
@@ -688,11 +688,6 @@ rm -f "$DIALOG_THEME"
 clear
 CHOICES="${CHOICES//\"/}"   # some dialog versions quote each tag
 
-if [ -z "$CHOICES" ]; then
-    print_error "No options selected. Exiting."
-    exit 1
-fi
-
 # Process the selected options
 # Run the installed check for an option (sets CHECK_* and returns its status)
 run_check() {
@@ -788,6 +783,12 @@ declare -A CVE_41714_ZIP=( [2]='9.7%20SP1%20patch.zip' [4]='9.8%20GA%20patch.zip
 
 # From here on, print the status report however the script ends
 trap print_report EXIT
+
+# Nothing ticked (or Cancel): no changes, just the report of what's installed
+if [ -z "$CHOICES" ]; then
+    print_info "No options selected. Nothing installed."
+    exit 0
+fi
 
 for CHOICE in $CHOICES; do
     RPM_INSTALLED=0
