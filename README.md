@@ -56,7 +56,7 @@ Before the menu opens, every option is checked against what its patch actually c
 
 | Option(s) | Patch | Counts as installed when |
 |---|---|---|
-| 1 | CVE-2024-41713 | **All three** are present: the latest `/usr/vm/config/Revision` entry (what `sinfo` shows) is `CVE-2024-41713 : Path Traversal Combined Fix Patch` and not `REVERSED`; the `26npm-ivr-rewrite` template holds both `[R=404]` rules for `/npm-admin` and `/npm-pwg`; and the live `/etc/httpd/conf/httpd.conf` holds both rules |
+| 1 | CVE-2024-41713 | **All three** are present: the latest `/usr/vm/config/Revision` entry (what `sinfo` shows) is `CVE-2024-41713 : Path Traversal Combined Fix Patch` and not `REVERSED`; the `26npm-ivr-rewrite` template holds both `[R=404]` rules for `/npm-admin` and `/npm-pwg`; and the live `/etc/httpd/conf/httpd.conf` passes Mitel's verification (`grep "npm.*404" /etc/httpd/conf/httpd.conf` shows both an npm-admin and an npm-pwg rule) |
 | 2, 4, 6 | CVE-2024-41714 | The installed `views.py` and `feedback.py` match the patched files by MD5. `feedback.py` differs per version, so it decides which of the three options is installed |
 | 4, 6 | + CVE-2024-35287 (NPM-4630) | The latest Revision entry is `NPM-4630 - Server Console escape to bash as root.` and `/usr/vm/bin/startnpm` matches the patched file by MD5 |
 | 5, 7, 9, 10 | RPMs | The exact package version is installed, **or a newer version** of the same package is (shown as `[NEWER x INSTALLED]`; the option is skipped so the package is never downgraded) |
@@ -64,7 +64,7 @@ Before the menu opens, every option is checked against what its patch actually c
 
 Menu colours:
 - **Green:** installed, with the date (e.g. `[INSTALLED 2026-11-17]`), or superseded by a newer version. Not ticked, and skipped if you tick it.
-- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 4 and 6 then install only the missing part. This only applies on versions the issue affects: CVE-2024-41713 (option 1) up to 9.8.2.12, and CVE-2024-41714 (options 2, 4, 6) up to 9.8.1.5. Later releases include the fix and may share some patched files (for example, 9.8.2.12's `feedback.py` matches a CVE-2024-41714 patch file while its `views.py` is newer), so a partial match there is shown as not required.
+- **Red:** recommended for this version, or **incomplete**. An option where only some parts are found is labelled `[INCOMPLETE - missing: …]` and ticked, so running the script completes it. Options 4 and 6 then install only the missing part. This only applies on versions the issue affects: CVE-2024-41713 (option 1) up to 9.8 SP1 FP2 (9.8.1.201), and CVE-2024-41714 (options 2, 4, 6) up to 9.8.1.5. Later releases include the fix and may share some patched files (for example, 9.8.2.12's `feedback.py` matches a CVE-2024-41714 patch file while its `views.py` is newer), so a partial match there is shown as not required.
 - **Yellow:** not required for this version.
 
 Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-0007).

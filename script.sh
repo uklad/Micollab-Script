@@ -381,12 +381,21 @@ has_all_rules() {  # $1 = file
     grep -qF -- "$rule" "$1" || return 1
   done
 }
+# Mitel's own verification for the live config: grep "npm.*404" httpd.conf
+# must show both an npm-admin and an npm-pwg rule ("if none or only one are
+# seen, the system must be patched")
+httpd_conf_secure() {
+  local lines
+  [ -r "$HTTPD_CONF" ] || return 1
+  lines=$(grep "npm.*404" "$HTTPD_CONF")
+  grep -q "npm-admin" <<< "$lines" && grep -q "npm-pwg" <<< "$lines"
+}
 check_cve_41713() {
   local have=0
   CHECK_WHEN=""; CHECK_MISSING=""
   if CHECK_WHEN=$(revision_note_date "$CVE_41713_NOTE"); then have=$((have+1)); else CHECK_MISSING+="Revision note, "; fi
   if has_all_rules "$CVE_41713_TEMPLATE"; then have=$((have+1)); else CHECK_MISSING+="26npm-ivr-rewrite template, "; fi
-  if has_all_rules "$HTTPD_CONF"; then have=$((have+1)); else CHECK_MISSING+="httpd.conf rules, "; fi
+  if httpd_conf_secure; then have=$((have+1)); else CHECK_MISSING+="httpd.conf npm-admin/npm-pwg 404 rules, "; fi
   CHECK_MISSING="${CHECK_MISSING%, }"
   parts_status "$have" 3
 }
@@ -469,7 +478,7 @@ check_rpm() {  # $1 = option
 # file but its views.py is newer), so a partial match there is "not required",
 # not "incomplete". Only options whose check can report "incomplete" need this.
 declare -A AFFECTED_MAX=(
-  [1]='9.8.2.12'   # CVE-2024-41713: 9.8 SP2 (9.8.2.12) and earlier
+  [1]='9.8.1.201'  # CVE-2024-41713: 9.8 SP1 FP2 (9.8.1.201) and earlier
   [2]='9.8.1.5'    # CVE-2024-41714: 9.8 SP1 (9.8.1.5) and earlier
   [4]='9.8.1.5'
   [6]='9.8.1.5'
