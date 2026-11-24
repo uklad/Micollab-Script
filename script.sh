@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MiCollab Patch Installer - bump this when the script changes
-SCRIPT_VERSION="2.1.0"
+SCRIPT_VERSION="2.2.0"
 
 # Function to print colorful messages
 print_info() {
@@ -328,6 +328,9 @@ case "$MasVersion" in
   9.8.*)  version_lt "$MasVersion" "9.8.3.103" && PRESELECTED="$PRESELECTED 3" ;;
   10.0.*) PRESELECTED="$PRESELECTED 8" ;;
 esac
+# What Mitel recommends for this version, before the checks change PRESELECTED
+# (used by the status report at the end)
+RECOMMENDED="$PRESELECTED"
 
 # ---------------------------------------------------------------------------
 # Installed-patch checks
@@ -707,23 +710,97 @@ run_check() {
 verify_option() {
     run_check "$1"
     case $? in
-        0|3) print_success "Verified: option $1 is installed${CHECK_WHEN:+ ($CHECK_WHEN)}" ;;
+        0|3) print_success "Verified: option $1 is installed${CHECK_WHEN:+ ($CHECK_WHEN)}"
+             RUN_RESULT[$1]="Installed" ;;
         *)   print_error "Verification FAILED for option $1 - ${CHECK_MISSING:-patch not detected}"
+             RUN_RESULT[$1]="Failed"
              VERIFY_FAILED="$VERIFY_FAILED $1" ;;
     esac
 }
 
+# ---------------------------------------------------------------------------
+# Status report, printed when the script finishes (also after an error exit).
+# CSV, one row per option that was selected, is installed, or is recommended
+# for this version, so it can be pasted into a spreadsheet.
+# ---------------------------------------------------------------------------
+declare -A RUN_RESULT
+CURRENT_CHOICE=""
+
+csv_row() {
+    local out="" f
+    for f in "$@"; do
+        f="${f//\"/\"\"}"
+        out+="${out:+,}\"$f\""
+    done
+    printf '%s\n' "$out"
+}
+
+print_report() {
+    local host today opt status when notes run selected
+    host=$(hostname 2>/dev/null)
+    today=$(date '+%Y-%m-%d %H:%M')
+    # Exited part-way through an install (download or patcher error)
+    if [ -n "$CURRENT_CHOICE" ] && [ -z "${RUN_RESULT[$CURRENT_CHOICE]}" ]; then
+        RUN_RESULT[$CURRENT_CHOICE]="Failed"
+    fi
+
+    echo
+    echo "==================== PATCH STATUS REPORT (CSV) ===================="
+    csv_row "Hostname" "MiCollab version" "Report date" "Option" "Patch" "Status" "Installed on" "This run" "Notes"
+    for opt in 1 2 3 4 5 6 7 8 9 10; do
+        selected=0; [[ " $CHOICES " == *" $opt "* ]] && selected=1
+        run_check "$opt"
+        case $? in
+            0) status="Installed" ;;
+            3) status="Newer version installed" ;;
+            2) if not_affected "$opt"; then status="Not required"; else status="Incomplete"; fi ;;
+            *) if [[ " $RECOMMENDED " == *" $opt "* ]]; then status="Not installed"; else status="Not required"; fi ;;
+        esac
+        # Leave out options this server doesn't need and that weren't touched
+        [ "$status" = "Not required" ] && [ "$selected" = 0 ] && continue
+
+        when=""
+        case "$status" in Installed|Incomplete) when="$CHECK_WHEN" ;; esac
+        # One date format for every row (the Revision file uses "Fri Dec 13 ...")
+        [ -n "$when" ] && when=$(date -d "$when" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "$when")
+        notes=""
+        case "$status" in
+            Incomplete)                notes="Missing: $CHECK_MISSING" ;;
+            "Newer version installed") notes="${RPM_NAME[$opt]}-$CHECK_NEWER" ;;
+            "Not installed")           notes="Recommended for $MasVersion" ;;
+        esac
+        if [ "$opt" = 5 ] && [ "${RUN_RESULT[5]}" = "Installed" ]; then
+            notes="${notes:+$notes; }Reboot required"
+        fi
+        if [[ " 7 9 10 " == *" $opt "* ]] && [ "${RUN_RESULT[$opt]}" = "Installed" ] && [ "$AWV_SVC_FAILED" = 1 ]; then
+            notes="${notes:+$notes; }Check AWV services restarted"
+        fi
+
+        run="${RUN_RESULT[$opt]}"
+        [ -z "$run" ] && { [ "$selected" = 1 ] && run="Not run" || run="Not selected"; }
+
+        csv_row "$host" "$MasVersion" "$today" "$opt" "${MENU_LABELS[$opt]}" "$status" "$when" "$run" "$notes"
+    done
+    echo "==================================================================="
+}
+
 declare -A CVE_41714_ZIP=( [2]='9.7%20SP1%20patch.zip' [4]='9.8%20GA%20patch.zip' [6]='9.8%20SP1%20patch.zip' )
+
+# From here on, print the status report however the script ends
+trap print_report EXIT
 
 for CHOICE in $CHOICES; do
     RPM_INSTALLED=0
+    CURRENT_CHOICE="$CHOICE"
 
     # Check again right before installing (an earlier choice may have applied
     # the same files, e.g. NPM-4630 is shared by options 4 and 6)
     run_check "$CHOICE"
     case $? in
-        0) print_info "Option $CHOICE is already installed. Skipping."; continue ;;
-        3) print_info "Option $CHOICE: a newer version (${CHECK_NEWER}) is already installed. Skipping, so it isn't downgraded."; continue ;;
+        0) print_info "Option $CHOICE is already installed. Skipping."
+           RUN_RESULT[$CHOICE]="Skipped (already installed)"; continue ;;
+        3) print_info "Option $CHOICE: a newer version (${CHECK_NEWER}) is already installed. Skipping, so it isn't downgraded."
+           RUN_RESULT[$CHOICE]="Skipped (newer installed)"; continue ;;
     esac
 
     case $CHOICE in
@@ -775,20 +852,22 @@ for CHOICE in $CHOICES; do
             [ "$RPM_INSTALLED" = 1 ] && AWV_RESTART_NEEDED=1
             ;;
         3|8)
-            install_cs_patch "$CHOICE" || continue
+            install_cs_patch "$CHOICE" || { RUN_RESULT[$CHOICE]="Skipped (wrong version)"; continue; }
             ;;
 	*)
             print_error "Invalid choice. Skipping."
+            RUN_RESULT[$CHOICE]="Skipped (invalid)"
             continue
             ;;
     esac
 
     verify_option "$CHOICE"
 done
+CURRENT_CHOICE=""
 
 # Restart AWV once, after all selected patches are installed
 if [ "$AWV_RESTART_NEEDED" = 1 ]; then
-    restart_awv_services || AWV_RESTART_FAILED=1
+    restart_awv_services || { AWV_RESTART_FAILED=1; AWV_SVC_FAILED=1; }
 elif [[ " $CHOICES " =~ \ (7|9|10)\  ]]; then
     # An AWV patch (7/9/10) was selected but its RPM was already installed
     print_info "AWV restart skipped: the selected AWV patch was already installed, so nothing changed"

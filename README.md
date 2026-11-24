@@ -1,5 +1,5 @@
 # Micollab Patch Installer
-A bash script (v2.1.0) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
+A bash script (v2.2.0) that checks which Mitel security patches a MiCollab server needs, applies the ones you choose, and verifies them. It covers CVE-2024-35287, CVE-2024-41713, CVE-2024-41714, CVE-2024-47223, CVE-2025-52914 (MISA-2025-0008), MISA-2026-0006 and MISA-2026-0012 on MiCollab 6.0 - 10.3.
 
 ## What it does
 1. **Detects the MiCollab version** (`config getprop sysconfig MasVersion`) and ticks the patches Mitel recommends for it.
@@ -11,6 +11,7 @@ A bash script (v2.1.0) that checks which Mitel security patches a MiCollab serve
 4. **Installs the patches you tick**, following Mitel's instructions for each. It downloads them from this repo with `curl`, checks the download where Mitel supplies a checksum, and keeps the original files as backups. Patches that are already installed are skipped, and RPMs are never downgraded.
 5. **Restarts what each patch needs:** the AWV services after the AWV patches, and tomcat after the ChangeSettingsPortlet patch, once each at the end.
 6. **Verifies every install** with the same check, and exits with an error listing anything that didn't apply.
+7. **Prints a status report** at the end, as CSV you can paste into a spreadsheet. See [Status report](#status-report).
 
 ## What it doesn't do
 - **It doesn't revert patches.** Reverting is manual; the steps for each patch are in [More notes](#more-notes).
@@ -87,6 +88,28 @@ Menu colours:
 - **Yellow:** not required for this version.
 
 Mitel notes the CVE-2024-41713 patch also corrects CVE-2025-52913 (MISA-2025-0007).
+
+## Status report
+
+When the script finishes, it prints a CSV report between two `=====` lines. It also prints one if the script stops early with an error. Each option is checked again for the report, so it shows the server's state at the end of the run.
+
+```
+==================== PATCH STATUS REPORT (CSV) ====================
+"Hostname","MiCollab version","Report date","Option","Patch","Status","Installed on","This run","Notes"
+"mcollab01","9.8.1.5","2026-11-24 11:08","1","6.0 to 9.8 SP2 + MiVB-X (6.0.206.0 - 9.8.2.12) CVE-2024-41713","Installed","2024-12-13 09:15","Skipped (already installed)",""
+"mcollab01","9.8.1.5","2026-11-24 11:08","6","9.8 SP1 (9.8.1.5) CVE-2024-41714 & CVE-2024-35287","Installed","2026-11-24 11:08","Installed",""
+===================================================================
+```
+
+- **Rows:** every option that was ticked, is installed or partly installed, or is recommended for this version. Options the server doesn't need, and that weren't ticked, are left out.
+- **Status:** `Installed`, `Newer version installed`, `Incomplete`, `Not installed` (recommended but not installed) or `Not required`.
+- **Installed on:** the install date, as `YYYY-MM-DD HH:MM`, where the script can tell it.
+- **This run:** what happened in this run. The values are `Installed`, `Skipped (already installed)`, `Skipped (newer installed)`, `Skipped (wrong version)`, `Failed` and `Not selected`.
+- **Notes:** the missing parts for `Incomplete` and the newer package version. They also say `Reboot required` after option 5 is installed, and flag a failed AWV restart.
+
+To get the report into a spreadsheet, copy the lines between the `=====` markers, header row included. Leave out the header when you add more servers.
+- **Excel:** paste into column A, then use **Data > Text to Columns > Delimited > Comma**.
+- **Google Sheets:** paste, then choose **Split text to columns** in the paste menu.
 
 ## More notes
 - The CVE-2024-41714 options keep the original files as `views_old.py` and `feedback_old.py`. An existing backup is never overwritten, so the original survives a re-run.
