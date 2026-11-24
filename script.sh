@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# MiCollab Patch Installer - bump this when the script changes
+SCRIPT_VERSION="2.1.0"
+
 # Function to print colorful messages
 print_info() {
     echo -e "\e[34m[INFO]\e[0m $1"
@@ -269,6 +272,7 @@ if [ -z "$MasVersion" ]; then
   exit 1
 fi
 
+print_info "MiCollab Patch Installer v$SCRIPT_VERSION"
 print_success "MasVersion Detected as: $MasVersion"
 
 # Determine the preselected options based on MasVersion
@@ -673,7 +677,7 @@ darrow_color = (CYAN,BLACK,ON)
 EOF
 
 # Display the dialog with preselected options
-CHOICES=$(DIALOGRC="$DIALOG_THEME" dialog --colors --backtitle "Patch Selector" --title "Select an Option" --checklist \
+CHOICES=$(DIALOGRC="$DIALOG_THEME" dialog --colors --backtitle "MiCollab Patch Installer v$SCRIPT_VERSION" --title " Patch Selector v$SCRIPT_VERSION - MiCollab $MasVersion " --checklist \
 "Choose the patch version(s): Micollab Version Detected : $MasVersion\n\Zb\Z1Red\Zn = recommended or incomplete (preselected)   \Zb\Z2Green\Zn = already installed   \Zb\Z3Yellow\Zn = not required for this version" 22 150 10 \
     "${MENU_ITEMS[@]}" \
     3>&1 1>&2 2>&3 3>&-)
