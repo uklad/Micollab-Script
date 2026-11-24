@@ -105,6 +105,21 @@ rename_and_copy_files() {
     cp -f /tmp/feedback.py /usr/ucs/feedback/ || { print_error "Failed to copy feedback.py"; exit 1; }
 }
 
+# Function to run a Mitel patcher.sh with its input from the terminal.
+# When this script is run as "curl ... | bash", stdin is the script itself, so
+# any prompt in patcher.sh (e.g. "run maintenance from Hard Disk?") would read
+# lines of this script as its answer. Reading from /dev/tty lets the user answer.
+run_patcher_sh() {
+    print_info "When asked to run maintenance from Hard Disk, answer N"
+    if ( : </dev/tty ) 2>/dev/null; then
+        sh patcher.sh </dev/tty
+    else
+        # No terminal (e.g. run from cron/automation): give it no input rather
+        # than this script's text
+        sh patcher.sh </dev/null
+    fi
+}
+
 # Function to run NPM-4630 patcher.sh
 run_patcher_NPM-4630() {
     print_info "Extracting NPM-4630_Fix_Patch_20.8.tar.gz"
@@ -117,7 +132,7 @@ run_patcher_NPM-4630() {
 
     print_info "Running patcher.sh"
     print_info "Script may pause for a few seconds until complete"
-    if sh patcher.sh; then
+    if run_patcher_sh; then
         print_success "Patcher executed successfully"
     else
         print_error "Failed to execute patcher.sh"
@@ -137,7 +152,7 @@ run_patcher_CVE-2024-41713() {
 
     print_info "Running patcher.sh"
     print_info "Script may pause for a few seconds until complete"
-    if sh patcher.sh; then
+    if run_patcher_sh; then
         print_success "Patcher executed successfully"
     else
         print_error "Failed to execute patcher.sh"
